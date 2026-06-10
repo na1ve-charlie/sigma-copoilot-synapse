@@ -17,13 +17,26 @@ from synapse.selection.filters import (
     TimeBetween,
 )
 
+from synapse.selection.models import (
+    AggregationStrategy,
+    RecordQuery,
+    SelectionScope,
+    SelectionSet,
+    SortRule,
+)
+
 __all__ = [
+    "AggregationStrategy",
     "AllOf",
     "AnyOf",
     "FieldEquals",
     "FieldIn",
     "FilterExpression",
     "Not",
+    "RecordQuery",
+    "SelectionScope",
+    "SelectionSet",
+    "SortRule",
     "StringContains",
     "StringEquals",
     "TimeBetween",
