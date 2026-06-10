@@ -1,0 +1,11 @@
+{
+  "verdict": "clear",
+  "slot_operations": [
+    {
+      "entity_type": "selection_reference",
+      "action": "replace",
+      "target": "active"
+    }
+  ],
+  "action_intents": []
+}

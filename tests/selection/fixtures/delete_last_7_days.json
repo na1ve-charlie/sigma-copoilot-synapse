@@ -1,0 +1,21 @@
+{
+  "verdict": "clear",
+  "slot_operations": [
+    {
+      "entity_type": "record_time_range",
+      "action": "replace",
+      "target": "relative:last_7_days"
+    },
+    {
+      "entity_type": "record_judgement",
+      "action": "replace",
+      "target": "NG"
+    }
+  ],
+  "action_intents": [
+    {
+      "name": "task.nvh.data_management.records.delete",
+      "score": 0.97
+    }
+  ]
+}
