@@ -383,34 +383,259 @@ sequenceDiagram
 
 ## 7. 推荐目录结构
 
+下面的目录结构是**目标职责边界**，不是要求一次性把当前仓库全部重命名或搬迁到位。  
+迁移时应优先采用“小步抽取 + 兼容旧入口”的方式：先把新职责放进目标位置，再逐步收缩旧模块。
+
 ```text
 src/synapse/
   api/
+    main.py                    # HTTP/FastAPI 入口
+    turns.py                   # /turns 路由
+    schemas.py                 # API 请求/响应 Schema
+    presenters.py              # 内部 plan -> API 输出模型
   application/
+    handle_turn.py             # 单轮请求编排
+    confirm_operation.py       # 确认高危操作
+    cancel_operation.py        # 取消待确认操作
+    get_task_status.py         # 查询任务状态
+    dto.py                     # application 层输入/输出对象
+    ports.py                   # application 依赖的抽象接口
   recognition/
+    models.py                  # RecognizedCommand 等中间语义模型
+    service.py                 # 对 BusinessIntentRecognizer 的应用层封装
+    mappers.py                 # Themis 结果 -> 内部语义模型
+    references.py              # “上面这些数据”等引用语义解释
+    preprocessing/
+      pipeline.py              # 识别前预处理总流程
+      arbiter.py               # 多预处理策略裁决
+      contracts.py             # 预处理协议
   conversation/
+    models.py                  # ConversationState
+    service.py                 # 会话状态读写与变更规则
+    repository.py              # 会话仓储抽象
+    projection.py              # slot_state / active task 投影
   selection/
+    models.py                  # RecordQuery / SelectionSet / FilterExpression
+    filters.py                 # 条件表达式构造与规范化
+    service.py                 # 创建、刷新、读取 SelectionSet
+    repository.py              # SelectionSet 仓储抽象
+    references.py              # 多轮“这批/上面/最近那次”引用解析
+    candidate_views.py         # 面向前端的选择结果展示模型
   operations/
+    models.py                  # OperationRequest / TaskSpec / OperationParams
+    contracts.py               # OperationHandler 协议
+    registry.py                # 操作类型到 handler 的注册表
+    handlers/
+      record_search.py         # 查询/观察类操作
+      trend_analysis.py        # 趋势分析
+      data_export.py           # 导出
+      data_backup.py           # 备份
+      data_delete.py           # 删除
+      report_generation.py     # 报告生成
+      audio_generation.py      # 音频生成
+      recompute_colormap.py    # 指标重计算
   confirmation/
+    models.py                  # Confirmation / Preview / Policy
+    service.py                 # 预览、确认、过期、幂等校验
+    repository.py              # 待确认任务仓储抽象
+    preview.py                 # 影响预览组装
+    tokens.py                  # confirmation token / idempotency key
   domains/
     observation/
+      policy.py                # 观测域规则
+      slots.py                 # 域内 slot 语义
+      autofill.py              # 域内自动补全
+      scope.py                 # 观测范围规则
+      task_params.py           # 观测相关操作参数映射
+      resolver_query.py        # 域内 resolver 查询构造
+      resolver_query_view.py   # 域内候选展示
+      catalog.py               # 域内目录/别名/枚举
     data_management/
+      policy.py                # 导出/备份/删除等规则
+      task_params.py           # 数据管理参数映射
+      preview.py               # 数据管理类影响预览
     reporting/
+      policy.py                # 报告域规则
+      task_params.py           # 报告参数映射
+      templates.py             # 报告模板选择策略
     recomputation/
+      policy.py                # 重计算规则
+      task_params.py           # 重计算参数映射
   integrations/
     sigma/
+      gateway.py               # 对上层暴露的统一网关
+      contracts.py             # 外部数据契约
+      http.py                  # HTTP 访问实现
+      snapshot.py              # 快照加载/缓存
+      mappers.py               # 外部响应 -> 内部对象
   infrastructure/
     persistence/
+      conversation_repo.py     # 会话仓储实现
+      selection_repo.py        # SelectionSet 仓储实现
+      confirmation_repo.py     # 确认任务仓储实现
+      task_repo.py             # 任务状态仓储实现
     audit/
+      writer.py                # 审计写入
+      models.py                # 审计记录模型
+    clock.py                   # 时间提供者
+    ids.py                     # ID / token 生成
+    logging.py                 # 日志适配
 ```
 
 目录规则：
 
-- `domains/` 放业务域特有规则
-- `selection/` 放通用记录集合模型，不放具体业务操作
-- `operations/` 放操作定义和 handler，不放对话状态
-- `integrations/sigma/` 只做外部系统协议适配
-- `infrastructure/` 放仓储、数据库、审计、时钟等技术实现
+- `api/` 只处理协议边界，不做业务判断；不能在这里拼装 SelectionSet、直接查 SigMA、或写确认状态机。
+- `application/` 只做流程编排；它可以依赖多个领域，但不应该承载业务域常量、候选展示细节或高危策略细节。
+- `recognition/` 负责把 Themis 决策转成应用自有语义对象；不能直接泄漏 Themis 原始对象到别层。
+- `conversation/` 负责会话生命周期、active selection / pending confirmation / active task 等状态；不直接做业务操作参数拼装。
+- `selection/` 负责“选中了哪些记录”；这里放通用查询模型、引用模型、筛选表达式，不放删除/导出/报告等具体动作规则。
+- `operations/` 负责“对这批记录做什么”；每个操作类型一个 handler，避免继续向单个 planner 追加分支。
+- `confirmation/` 负责高危预览、确认、过期、幂等和二次校验；不负责识别用户意图，也不直接拼前端 plan。
+- `domains/` 放业务域特有规则。这里可以有观测域、数据管理域、报告域、重计算域，但不应出现通用编排逻辑。
+- `integrations/sigma/` 只做外部系统协议适配、HTTP、快照、DTO 映射；不放业务判断，不放会话状态。
+- `infrastructure/` 放仓储、审计、时钟、ID、日志等技术实现；这里是实现细节，不承载业务语义。
+
+### 7.1 推荐的层内分工
+
+- `api/`
+  - 输入：HTTP 请求、反序列化后的 API Schema。
+  - 输出：稳定的 `TurnPlan` 或错误响应。
+  - 典型内容：路由、Schema、Presenter、异常映射。
+- `application/`
+  - 输入：用例请求对象。
+  - 输出：用例响应对象。
+  - 典型内容：`HandleTurn`、`ConfirmOperation`、`CancelOperation`、`GetTaskStatus`。
+- `recognition/`
+  - 输入：用户消息、候选项、会话引用上下文。
+  - 输出：`RecognizedCommand`、`ActionIntent`、`ReferenceIntent`。
+  - 典型内容：Themis 适配、预处理、内部中间语义模型。
+- `conversation/`
+  - 输入：session id、当前状态、状态更新请求。
+  - 输出：新状态、状态投影。
+  - 典型内容：`ConversationState`、状态仓储、状态演进规则。
+- `selection/`
+  - 输入：筛选条件、引用表达式、外部查询结果。
+  - 输出：`SelectionSet`、候选展示、引用解析结果。
+  - 典型内容：`FilterExpression`、`RecordQuery`、引用解析、集合持久化。
+- `operations/`
+  - 输入：`OperationRequest`。
+  - 输出：校验结果、影响预览、`TaskSpec`。
+  - 典型内容：handler、registry、统一操作契约。
+- `confirmation/`
+  - 输入：高危 `OperationRequest` 或待确认 token。
+  - 输出：预览结果、待确认任务、确认结果。
+  - 典型内容：确认状态机、token 校验、幂等键、过期策略。
+- `domains/*`
+  - 输入：领域内规则需要的参数和上下文。
+  - 输出：领域决策、参数补全、候选展示、局部校验。
+  - 典型内容：别名、目录、策略、autofill、domain-specific projector。
+
+### 7.2 放置规则
+
+- 新增“识别语义解释”代码，优先放 `recognition/`，不要继续塞进 `planning/` 或 `engine/`。
+- 新增“会话状态字段、状态迁移、active selection/pending confirmation 管理”代码，放 `conversation/`。
+- 新增“筛选条件表达、记录集合持久化、‘上面这些数据’引用”代码，放 `selection/`。
+- 新增“导出、备份、删除、趋势、报告、重计算”等执行动作，放 `operations/handlers/`，并通过 `registry.py` 注册。
+- 新增“高危确认、影响预览、二次校验、幂等键”代码，放 `confirmation/`。
+- 新增业务域常量、别名、特殊补全逻辑、域内 candidate view，放对应 `domains/<domain>/`。
+- 新增 SigMA 接口适配、HTTP DTO、快照转换，放 `integrations/sigma/`。
+- 新增仓储实现、审计写入、时钟/ID 等技术细节，放 `infrastructure/`。
+
+### 7.3 明确不建议出现的目录做法
+
+- 不建议新增 `utils.py`、`helpers.py`、`common.py` 这类无限增长的兜底文件。
+- 不建议在 `application/` 或 `engine/` 中放具体业务域常量，例如观测指标、频谱、工况别名等。
+- 不建议在 `integrations/` 中直接构造应用层 `TaskSpec` 或前端 `TurnPlan`。
+- 不建议在 `selection/` 中放删除/导出/报告的执行策略。
+- 不建议在 `operations/` 中直接操作会话状态仓储。
+- 不建议在 `api/schemas.py` 中承载业务规则或默认补全逻辑。
+
+### 7.4 与当前仓库的大致映射
+
+这不是要求立即重命名，而是给后续小步迁移一个明确方向：
+
+- 当前 `engine/conductor.py` 的编排职责，目标上应收敛到 `application/handle_turn.py`。
+- 当前 `planning/planner.py`、`planning/tasks.py` 中混合的“查询 + 操作 + 确认”逻辑，目标上应拆到 `selection/`、`operations/`、`confirmation/`。
+- 当前 `session/task_context.py` 的状态职责，目标上应归入 `conversation/`。
+- 当前 `slots/` 中与“筛选条件”“引用集合”“slot state 投影”相关的内容，目标上分别下沉到 `selection/` 与 `conversation/`。
+- 当前 `domains/observation/` 中的业务域知识仍然保留在 domain 层，但应逐步减少对编排层的大量反向渗透。
+- 当前 `integrations/sigma/` 已经接近目标方向，应继续保持“协议适配，不承载业务规则”的边界。
+
+### 7.5 落地时的顺序建议
+
+- 先新增目标目录下的私有 helper 或 service，不立即删除旧模块。
+- 先在旧入口调用新模块，确认行为等价后，再缩减旧实现。
+- 每次只迁移一类职责，例如“先迁移 selection 引用解析”，不要一次同时迁移 recognition、selection、operations。
+- 迁移前优先补 characterization tests，记录当前外部行为。
+- 如果一个改动会同时影响目录迁移、业务行为和 API 输出，应拆成多个 PR。
+
+### 7.6 各 Domain 流程编排示意
+
+下面的图是**目标职责编排示意**，重点是说明每个 domain 在整条链路中的位置，不代表必须严格按同名文件一一落地。
+
+#### Observation Domain
+
+观测域负责把“看什么、按什么范围看、候选如何展示、参数如何补全”组织成稳定规则。
+
+```mermaid
+flowchart TD
+    A["HandleTurn"] --> B["Recognition"]
+    B --> C["Observation Policy"]
+    C --> D["Scope and Autofill"]
+    D --> E["Resolver Query Builder"]
+    E --> F["SigMA Gateway"]
+    F --> G["Candidate View and Task Params"]
+    G --> H["Selection or Observation Task"]
+    H --> I["Plan Assembler"]
+```
+
+#### Data Management Domain
+
+数据管理域负责把“导出、备份、删除”这类动作约束在已有 `SelectionSet` 之上，并接入风险控制。
+
+```mermaid
+flowchart TD
+    A["HandleTurn"] --> B["Recognition"]
+    B --> C["Selection Reference"]
+    C --> D["Load SelectionSet"]
+    D --> E["Data Management Policy"]
+    E --> F["Operation Handler"]
+    F --> G["Impact Preview"]
+    G --> H["Confirmation or TaskSpec"]
+    H --> I["Audit and Plan Assembler"]
+```
+
+#### Reporting Domain
+
+报告域负责基于选定数据集和报告类型拼装参数、模板和生成任务，而不是自己维护会话状态。
+
+```mermaid
+flowchart TD
+    A["HandleTurn"] --> B["Recognition"]
+    B --> C["Selection Reference or Query"]
+    C --> D["Selection Service"]
+    D --> E["Reporting Policy"]
+    E --> F["Template and Params"]
+    F --> G["Report Generation Handler"]
+    G --> H["TaskSpec"]
+    H --> I["Plan Assembler"]
+```
+
+#### Recomputation Domain
+
+重计算域负责定义可重算对象、前置校验、影响评估和重算参数，不直接承载确认状态机。
+
+```mermaid
+flowchart TD
+    A["HandleTurn"] --> B["Recognition"]
+    B --> C["Selection Reference"]
+    C --> D["Load SelectionSet"]
+    D --> E["Recomputation Policy"]
+    E --> F["Snapshot and Param Validation"]
+    F --> G["Preview and Risk Check"]
+    G --> H["Confirmation or TaskSpec"]
+    H --> I["Plan Assembler"]
+```
 
 ## 8. API 输出模型
 
