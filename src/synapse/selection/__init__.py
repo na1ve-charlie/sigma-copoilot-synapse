@@ -4,3 +4,27 @@ This package is independent of Themis, FastAPI, SigMA integrations, and
 application planning. It defines what a record set is, not how it is
 recognized from natural language or rendered in an API response.
 """
+
+from synapse.selection.filters import (
+    AllOf,
+    AnyOf,
+    FieldEquals,
+    FieldIn,
+    FilterExpression,
+    Not,
+    StringContains,
+    StringEquals,
+    TimeBetween,
+)
+
+__all__ = [
+    "AllOf",
+    "AnyOf",
+    "FieldEquals",
+    "FieldIn",
+    "FilterExpression",
+    "Not",
+    "StringContains",
+    "StringEquals",
+    "TimeBetween",
+]
