@@ -59,7 +59,7 @@ Not(child: FilterExpression)         # 取反
 | 节点 | 参数 | 说明 |
 |---|---|---|
 | `ProductTypeMatch` | `configs: list[(type, version, system_no)]` | type + version + systemNo 复合元组，不可拆 |
-| `ExcessLimitTupleMatch` | `tuples: list[(sensor, test_name, indicator)]` | 超限标签 tuple 集合，LLM 传 tuple 即可，匹配策略 (any/all) 下沉到 SigMA 集成层 |
+| `ExcessLimitTupleMatch` | `sensors, test_names, indicators` — 三个独立数组 | 超限标签三维度独立，笛卡尔积由后端生成；匹配策略 (any/all) 下沉到 SigMA 集成层 |
 | `TimeBetween` | `start, end` | 时间窗口 |
 | `StringContains` | `field, value` | 模糊匹配，对应后端 `LIKE %value%` |
 | `StringEquals` | `field, value` | 精确匹配 |
@@ -383,7 +383,9 @@ class RecognizedCommand:
 class RecordSelectionCriteria:
     product_configs: tuple[ProductConfig, ...] = ()
     serial_contains: str | None = None
-    excess_limit_tuples: tuple[ExcessLimitTuple, ...] = ()
+    excess_limit_sensors: tuple[str, ...] = ()
+    excess_limit_test_names: tuple[str, ...] = ()
+    excess_limit_indicators: tuple[str, ...] = ()
     time_range: TimeRangeCriteria | None = None
     judgement_results: tuple[str, ...] = ()
     manual_verdict: str | None = None

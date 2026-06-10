@@ -606,7 +606,6 @@ tests/selection/test_criteria.py
 
 ```python
 ProductConfig
-ExcessLimitTuple
 RecordSelectionCriteria
 RelativeSelectionReference
 ```
@@ -616,7 +615,9 @@ RelativeSelectionReference
 ```text
 product_configs
 serial_contains
-excess_limit_tuples
+excess_limit_sensors
+excess_limit_test_names
+excess_limit_indicators
 time_ranges
 judgement_results
 manual_verdict
@@ -634,7 +635,8 @@ limit
 
 - `time_ranges` 是 tuple，支持多个时间段。
 - 复合 ProductConfig 不得拆成三个无关联列表。
-- ExcessLimitTuple 不得拆成三个无关联列表。
+- `excess_limit_sensors` / `excess_limit_test_names` / `excess_limit_indicators`
+  是三个独立数组，后端负责生成笛卡尔积。
 - 该文件不得 import Themis。
 - 该文件不得 import SigMA adapter。
 
@@ -670,7 +672,9 @@ data_management_expression_decoders
 ### 约束
 
 - 节点不可变。
-- configs/tuples 不得为空。
+- `ProductTypeMatch.configs` 不得为空。
+- `ExcessLimitTupleMatch` 的 `sensors` / `test_names` / `indicators`
+  至少一个不得为空。
 - 节点只保存领域语义，不生成 SigMA 参数。
 - 不将 `any/all` 后端匹配策略硬编码到通用 Selection。
 - `data_management_expression_decoders()` 返回：
