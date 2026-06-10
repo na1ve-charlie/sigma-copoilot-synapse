@@ -1,0 +1,21 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+.pytest_cache/
+build/
+dist/
+wheels/
+*.egg-info
+.uv-cache/
+
+# Virtual environments
+.venv
+
+# Report
+benchmark_reports/
+
+# Runtime state
+.copilot/
+
+# Local test environment
+.env

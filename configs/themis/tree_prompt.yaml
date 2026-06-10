@@ -1,0 +1,38 @@
+template: |
+  /no_think
+  Classify user message into intent(s).
+
+  ## Intent Tree
+  {tree_text}
+  {resolver_section}
+  ## Entity Types
+  Allowed entity_type values: {entity_types}
+  {examples_section}
+  ## User Message
+  "{message}"
+
+  ## Output Format
+  Output ONLY valid JSON, nothing else. Each intent is a flat object (no nested "slots"):
+  {{"intents": [{{"intent": "name", "score": 0.0-1.0, "action": "", "entity_type": "", "target": "", "slot_valid": true}}]}}
+
+  ## Fields
+  - intent: must exactly match a name from the Intent Tree.
+  - score: confidence 0.0-1.0.
+  - action: "add"|"remove"|"replace"|""; empty if no slot operation.
+  - entity_type: one of the allowed entity_type values or "".
+  - target: canonical entity value or "".
+  - slot_valid: true if target matches a known value, false otherwise.
+
+  ## Rules
+  - 1 action = 1 element in the intents array.
+  - Preserve the user's action order.
+  - Context change plus observation/query should output both intents.
+  - A bare entity reference inside an observation request should stay on the observation intent as slot fields when possible.
+  - Resolver query intents ask for available candidates; use empty action, entity_type, and target for them.
+  - Never invent intent names. Use only exact names from the Intent Tree.
+
+examples_path: "tree_prompt_examples.yaml"
+
+example_rendering:
+  max_examples: 4
+  group_selection: "message_aware"

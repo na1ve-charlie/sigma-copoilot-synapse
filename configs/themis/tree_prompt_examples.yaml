@@ -1,0 +1,105 @@
+intent_groups:
+  observation_action:
+    options:
+      - intent: "task.nvh.data_observation.batch.frequency_spectrum"
+        variables:
+          observation_name: "频谱"
+        keywords: ["频谱", "spectrum", "TWO_D_FS"]
+
+      - intent: "task.nvh.data_observation.batch.order_spectrum"
+        variables:
+          observation_name: "阶次谱"
+        keywords: ["阶次谱", "order spectrum", "order map", "TWO_D_OS"]
+
+      - intent: "task.nvh.data_observation.batch.time_domain"
+        variables:
+          observation_name: "时域数据"
+        keywords: ["时域", "时间域", "time domain", "TWO_D_TD"]
+
+      - intent: "task.nvh.data_observation.batch.order_slice"
+        variables:
+          observation_name: "阶次切片"
+        keywords: ["阶次切片", "order slice", "TWO_D_OC"]
+
+      - intent: "task.nvh.data_observation.batch.one_dim_data"
+        variables:
+          observation_name: "一维指标"
+        keywords: ["一维指标", "一维数据", "one dim", "ONE_D"]
+
+examples:
+  - input: "去掉 {old_sensor} 加上 {new_sensor}"
+    variables:
+      old_sensor:
+        entity_type: "sensor"
+        pick: 0
+      new_sensor:
+        entity_type: "sensor"
+        pick: 1
+    intents:
+      - intent: "task.nvh.context_management.switch_sensor"
+        score: 1.0
+        action: "remove"
+        entity_type: "sensor"
+        target_from: "old_sensor"
+        slot_valid: true
+      - intent: "task.nvh.context_management.switch_sensor"
+        score: 1.0
+        action: "add"
+        entity_type: "sensor"
+        target_from: "new_sensor"
+        slot_valid: true
+
+  - input: "切换到 {segment} 后查看 {observation_name}"
+    variables:
+      segment:
+        entity_type: "test_segment"
+        pick: 0
+    intents:
+      - intent: "task.nvh.context_management.switch_test_segment"
+        score: 1.0
+        action: "replace"
+        entity_type: "test_segment"
+        target_from: "segment"
+        slot_valid: true
+      - intent_from: "observation_action"
+        score: 1.0
+        action: ""
+        entity_type: ""
+        target: ""
+        slot_valid: true
+
+  - input: "当前有哪些传感器、测试段"
+    intents:
+      - intent: "inquiry.nvh.resolver_query.sensors"
+        score: 1.0
+        action: ""
+        entity_type: ""
+        target: ""
+        slot_valid: true
+      - intent: "inquiry.nvh.resolver_query.test_segments"
+        score: 1.0
+        action: ""
+        entity_type: ""
+        target: ""
+        slot_valid: true
+
+  - input: "当前有哪些传感器、测试段、指标"
+    intents:
+      - intent: "inquiry.nvh.resolver_query.sensors"
+        score: 1.0
+        action: ""
+        entity_type: ""
+        target: ""
+        slot_valid: true
+      - intent: "inquiry.nvh.resolver_query.test_segments"
+        score: 1.0
+        action: ""
+        entity_type: ""
+        target: ""
+        slot_valid: true
+      - intent: "inquiry.nvh.resolver_query.indicators"
+        score: 1.0
+        action: ""
+        entity_type: ""
+        target: ""
+        slot_valid: true

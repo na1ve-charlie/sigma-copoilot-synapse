@@ -1,0 +1,17 @@
+{
+  "data_load_mode": "dataset",
+  "dataset_id": "1152",
+  "products": [
+    {
+      "product_type": "hzzxkj-0527",
+      "product_version": "4",
+      "system_no": "7s-SNF1001"
+    },
+    {
+      "product_type": "dm0518",
+      "product_version": "4",
+      "system_no": "7s-SNF1001"
+    }
+  ],
+  "lang": "zh"
+}

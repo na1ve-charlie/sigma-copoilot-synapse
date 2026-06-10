@@ -1,0 +1,74 @@
+# Reasonix configuration.
+# Resolution order: flag > ./reasonix.toml > ~/.config/reasonix/config.toml > built-in defaults.
+# Secrets come from the environment via api_key_env; never put keys here.
+
+config_version = 2   # schema marker for diagnostics; old versions may ignore it
+default_model = "deepseek-flash"
+# language      = "zh"   # ui/model language; empty = auto-detect from $LANG / $REASONIX_LANG
+
+[agent]
+# system_prompt = """..."""   # omit to use the built-in prompt for this version
+# system_prompt_file = "prompts/system.md"   # overrides system_prompt when set
+max_steps   = 0
+temperature = 0.0
+auto_plan   = "off"   # off|on; off keeps plan mode manual
+# auto_plan_classifier = "deepseek-flash"   # optional; only used for borderline tasks
+soft_compact_ratio  = 0.5   # notice only; keeps cache-first prefix intact
+compact_ratio       = 0.8   # try compacting when prompt reaches this fraction
+compact_force_ratio = 0.9   # force compacting at this high-water mark
+# planner_model = "mimo"   # optional: enable two-model collaboration
+# subagent_model = "deepseek-pro"   # optional default for runAs=subagent skills
+# subagent_models = { review = "deepseek-pro", security_review = "deepseek-pro" }   # per-skill overrides
+# subagent_effort = "high"   # optional default effort for subagents
+# subagent_efforts = { review = "max", task = "high" }   # per-tool/skill effort overrides
+# output_style = "explanatory"   # explanatory | learning | concise | custom; empty = default
+
+[tools]
+enabled = []   # empty = all built-in tools
+bash_timeout_seconds = 120   # foreground safety cap; set 0 for no tool-local cap
+
+[codegraph]
+enabled      = true   # built-in MCP server; off by default for first-run sessions
+auto_install = true   # fetch the runtime when CodeGraph is enabled but missing
+# path       = ""   # empty = cache, then PATH, then a bundle beside reasonix
+
+[skills]
+# paths = ["~/my-skills", "../shared/skills"]   # extra custom skill roots
+# excluded_paths = ["~/.agents/skills"]   # hide convention roots without deleting folders
+# max_depth = 3   # nested scan depth; set 1 for legacy root-only discovery
+# disabled_skills = ["review"]   # hide noisy or unwanted skills
+
+[permissions]
+# Per-call gating. mode = writer fallback when no rule matches: ask|allow|deny.
+# Readers always default to allow. Precedence: deny > ask > allow > fallback.
+# Rules are "ToolName" or "ToolName(glob)"; '*' matches any run, '?' one char.
+mode  = "ask"
+# deny = ["bash(rm -rf*)", "bash(git push*)"]   # hard-blocked in every mode
+allow = ["explore", "bash=cd \"C:\\Users\\suppo\\Desktop\\AI Infra\\sigma-copilot-app-pipeline-refactor\" && git worktree add \"../sigma-copilot-app-refactor-dsv4\" codex/pipeline-refactor-from-current", "task", "bash=rm -rf src/copilot_kernel", "edit_file=pyproject.toml", "bash=rm -v tests/test_copilot_kernel.py tests/test_cli.py tests/test_calibration.py tests/test_benchmark.py tests/test_workspace_context_resolvers.py tests/test_pre_recognition_phase4.py tests/test_synapse_copilot_kernel_alignment.py tests/planner/test_plan_builder_core.py tests/planner/test_resolver_query_responder.py tests/recognition/test_data_observation_recognition.py tests/recognition/test_pre_recognition_pipeline.py tests/slots/test_observation_resolver_parsers.py tests/support/configs.py tests/support/kernels.py tests/support/runner.py tests/support/README.md", "bash=find tests/planner tests/recognition tests/slots tests/support tests/domains tests/fixtures -type f -name \"*.py\" 2>nul || echo \"checking done\"", "bash=rmdir tests/planner tests/recognition tests/slots 2>&1 || echo \"dirs may not all be empty\"", "bash=find tests/planner tests/recognition tests/slots -type f 2>nul", "bash=rm -rf tests/planner tests/recognition tests/slots tests/support", "edit_file=tests/test_synapse_conductor.py", "bash=cd \"C:\\Users\\suppo\\Desktop\\AI Infra\\sigma-copilot-app-pipeline-refactor\" && python -m pytest tests/ -x --timeout=60 -q 2>&1 | head -80", "bash=where python3 2>nul || where py 2>nul || echo \"no python found\"", "bash=where uv", "bash=cd \"C:\\Users\\suppo\\Desktop\\AI Infra\\sigma-copilot-app-pipeline-refactor\" && uv run pytest tests/ -x --timeout=60 -q 2>&1 | head -80", "bash=cd \"C:\\Users\\suppo\\Desktop\\AI Infra\\sigma-copilot-app-pipeline-refactor\" && uv run pytest tests/ -x -q 2>&1 | head -100", "bash=cd \"C:\\Users\\suppo\\Desktop\\AI Infra\\sigma-copilot-app-pipeline-refactor\" && git checkout -- tests/support/", "bash=cd \"C:\\Users\\suppo\\Desktop\\AI Infra\\sigma-copilot-app-pipeline-refactor\" && uv run pytest tests/ -x -q 2>&1 | head -120", "bash=cd \"C:\\Users\\suppo\\Desktop\\AI Infra\\sigma-copilot-app-pipeline-refactor\" && grep -rl copilot_kernel tests/ 2>nul", "bash=cd \"C:\\Users\\suppo\\Desktop\\AI Infra\\sigma-copilot-app-pipeline-refactor\" && rm -rf tests/support tests/domains tests/__pycache__", "bash=cd \"C:\\Users\\suppo\\Desktop\\AI Infra\\sigma-copilot-app-pipeline-refactor\" && find tests -name \"__pycache__\" -type d 2>nul", "bash=cd \"C:\\Users\\suppo\\Desktop\\AI Infra\\sigma-copilot-app-pipeline-refactor\" && uv run pytest tests/ -x -q 2>&1", "bash=cd \"C:\\Users\\suppo\\Desktop\\AI Infra\\sigma-copilot-app-pipeline-refactor\" && uv run pytest tests/ -q --ignore=tests/test_synapse_runtime.py 2>&1", "bash=uv run pytest tests/ -q --ignore=tests/test_synapse_runtime.py", "bash=cd \"C:\\Users\\suppo\\Desktop\\AI Infra\\sigma-copilot-app-pipeline-refactor\" && git status", "bash=cd \"C:\\Users\\suppo\\Desktop\\AI Infra\\sigma-copilot-app-pipeline-refactor\" && git add -u pyproject.toml src/copilot_kernel/ tests/test_copilot_kernel.py tests/test_cli.py tests/test_calibration.py tests/test_benchmark.py tests/test_workspace_context_resolvers.py tests/test_pre_recognition_phase4.py tests/test_synapse_copilot_kernel_alignment.py tests/planner/ tests/recognition/ tests/slots/ tests/support/ tests/domains/ tests/test_synapse_conductor.py", "bash=cd \"C:\\Users\\suppo\\Desktop\\AI Infra\\sigma-copilot-app-pipeline-refactor\" && git diff --cached --stat", "bash=cd \"C:\\Users\\suppo\\Desktop\\AI Infra\\sigma-copilot-app-pipeline-refactor\" && git commit -m \"chore: remove copilot_kernel package and its tests\n\n- Delete src/copilot_kernel/ (~70 files, ~20K lines)\n- Delete 16 test files dependent on copilot_kernel\n- Delete tests/support/, tests/planner/, tests/recognition/, tests/slots/, tests/domains/\n- Update pyproject.toml: remove 4 entry points, include only synapse*\n- Fix test_synapse_conductor.py: remove stale copilot_kernel assertion\n\nRemaining tests: 122 passed, 18 skipped\"", "bash=cd \"C:\\Users\\suppo\\Desktop\\AI Infra\\sigma-copilot-app-pipeline-refactor\" && git log --oneline -20", "bash=cd \"C:\\Users\\suppo\\Desktop\\AI Infra\\sigma-copilot-app-pipeline-refactor\" && find tests -name \"*.py\" | sort && echo \"---\" && wc -l tests/*.py", "write_file=C:\\Users\\suppo\\Desktop\\AI Infra\\sigma-copilot-app-pipeline-refactor\\REFACTORING_INFO.md"]
+# ask = ["write_file"]   # force a prompt even if otherwise allowed
+
+[sandbox]
+# Confine tool blast radius. File-writers (write_file/edit_file/multi_edit)
+# may only write under workspace_root (empty = current dir) + allow_write.
+# bash = "enforce" (default) jails each command in an OS sandbox (macOS now;
+# graceful fallback elsewhere); "off" disables it. network allows egress.
+# workspace_root = ""            # default: current working directory
+# allow_write = ["/tmp"]          # extra dirs writers may also modify
+bash    = "enforce"
+network = true
+
+[statusline]
+# A custom status line: a command whose first stdout line replaces the built-in
+# data row. It receives {"model","contextUsed","contextWindow","cwd"} as JSON on stdin.
+# command = "my-statusline.sh"
+
+# External MCP servers. type: "stdio" (default, a subprocess) | "http" | "sse".
+# ${VAR} / ${VAR:-default} are expanded from the environment in command/args/env/url/headers.
+# [[plugins]]
+# name    = "example"
+# command = "reasonix-plugin-example"
+# [[plugins]]                                  # a remote server over Streamable HTTP
+# name    = "stripe"
+# type    = "http"
+# url     = "https://mcp.stripe.com"
+# headers = { Authorization = "Bearer ${STRIPE_KEY}" }
