@@ -812,7 +812,7 @@ tests/selection/test_projector.py
 ```text
 product_configs -> ProductTypeMatch
 serial_contains -> StringContains(serial_no)
-excess_limit_tuples -> ExcessLimitTupleMatch
+excess_limit_sensors / excess_limit_test_names / excess_limit_indicators -> ExcessLimitTupleMatch
 time_ranges[1] -> TimeBetween
 time_ranges[2+] -> AnyOf(TimeBetween, ...)
 judgement_results -> FieldIn(judgement_result)
