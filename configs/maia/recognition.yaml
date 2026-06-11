@@ -1,0 +1,16 @@
+recognition:
+  intents_path: "intents"
+  tree_prompt_path: "../themis/tree_prompt.yaml"
+  report_contract_path: "recognition_report_contract.yaml"
+  llm:
+    model: "qwen/qwen3-4b-2507"
+    base_url: "http://localhost:1234/v1"
+    api_key: "svcopilot local accessor"
+    temperature: 0.1
+    max_tokens: 800
+    retries: 2
+  themis:
+    alpha: 0.10
+    delta: 0.10
+    min_intent_score: 0.50
+    build_index_on_init: false
