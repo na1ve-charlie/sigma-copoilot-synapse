@@ -1,0 +1,59 @@
+name: TurnResponse
+version: "2026-06-11"
+purpose: >
+  Stable frontend `/turns` response wrapper preserved from the current Synapse API
+  before Maia presenter and API implementation goals begin.
+wrapper:
+  required_top_level_fields:
+    - plan
+  forbidden_top_level_fields:
+    - status
+    - message
+    - diagnostics
+    - selection_set_id
+    - task_id
+    - risk_level
+  routing_field: plan.kind
+  notes:
+    - API returns only the public `plan` object at the top level
+    - frontend routing depends on `plan.kind`, not internal pipeline result wrappers
+plan_kinds:
+  - reply
+  - clarify
+  - task
+  - confirm
+  - context_update
+  - context_clear
+kind_shapes:
+  reply:
+    required_fields: [kind, message]
+    optional_fields: [data, suggestions, slot_state_diff]
+  clarify:
+    required_fields: [kind, reason, message]
+    optional_fields:
+      [pending_task, missing_slots, invalid_slots, prompts, suggestions, slot_state_diff]
+    prompt_shape:
+      required_fields: [id, target, label, message, required, input_type]
+      optional_fields: [candidates]
+      candidate_fields: [value, label]
+  task:
+    required_fields:
+      [kind, status, name, title, risk_level, requires_confirmation, params, message]
+    optional_fields: [reason, slot_state_diff]
+  confirm:
+    required_fields: [kind, reason, message]
+    optional_fields: [payload, slot_state_diff]
+  context_update:
+    required_fields: [kind, message]
+    optional_fields: [projected_slots, slot_state_diff]
+  context_clear:
+    required_fields: [kind, message]
+    optional_fields: [preserved, cleared, slot_state_diff]
+slot_state_diff:
+  required_fields: [changes]
+  change_shape: [slot, before, after]
+compatibility_rules:
+  - plan kinds stay reply, clarify, task, confirm, context_update, context_clear
+  - "`task.status` stays public inside `plan`; top-level status stays forbidden"
+  - "`slot_state_diff` stays nested under `plan`"
+  - the contract must not expose SelectionSet, confirmation tokens, or other future internals
