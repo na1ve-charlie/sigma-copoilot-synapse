@@ -5,11 +5,13 @@ from maia.integrations.sigma.request_mapper import (
     LegacyRecordRequestMapper,
     LegacyRecordRequestParams,
 )
+from maia.integrations.sigma.response_mapper import LegacyRecordResponseMapper
 
 __all__ = [
     "ArtifactKind",
     "LegacyRecordRequestMapper",
     "LegacyRecordRequestParams",
+    "LegacyRecordResponseMapper",
     "TestRecordPage",
     "TestRecordSummary",
 ]
