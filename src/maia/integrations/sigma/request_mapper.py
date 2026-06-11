@@ -7,7 +7,14 @@ from typing import Any, ClassVar
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from maia.api import WorkspaceContext
-from maia.selection import AllOf, AnyOf, FilterExpression, Not, Predicate, parse_filter_expression
+from maia.selection.expression import (
+    AllOf,
+    AnyOf,
+    FilterExpression,
+    Not,
+    Predicate,
+    parse_filter_expression,
+)
 
 
 _LIST_FIELDS = {
@@ -90,7 +97,7 @@ class LegacyRecordRequestMapper:
 
     def map(
         self,
-        expression: FilterExpression | dict[str, object],
+        expression: FilterExpression | dict[str, object] | None,
         *,
         workspace_context: WorkspaceContext | None,
         page: int | None = None,
@@ -100,8 +107,9 @@ class LegacyRecordRequestMapper:
             raise ValueError("workspace_context.dataset_id is required for legacy record queries")
 
         updates: dict[str, Any] = {}
-        for predicate in _conjunctive_predicates(parse_filter_expression(expression)):
-            _apply_predicate(updates, predicate)
+        if expression is not None:
+            for predicate in _conjunctive_predicates(parse_filter_expression(expression)):
+                _apply_predicate(updates, predicate)
         return LegacyRecordRequestParams(
             data_group_id=workspace_context.dataset_id,
             lang=workspace_context.lang,

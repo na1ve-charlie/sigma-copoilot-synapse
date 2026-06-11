@@ -102,6 +102,22 @@ def test_request_mapper_requires_dataset_scope_and_positive_pagination() -> None
         )
 
 
+def test_request_mapper_allows_dataset_scoped_query_without_extra_predicates() -> None:
+    mapper = LegacyRecordRequestMapper(default_page=3, default_rows=10)
+
+    request = mapper.map(
+        None,
+        workspace_context=_workspace_context(),
+    )
+
+    assert request.to_http_params() == {
+        "dataGroupId": "1152",
+        "lang": "zh",
+        "page": 3,
+        "rows": 10,
+    }
+
+
 def test_request_mapper_rejects_branching_and_record_level_predicates_reserved_for_g15() -> None:
     mapper = LegacyRecordRequestMapper()
 
