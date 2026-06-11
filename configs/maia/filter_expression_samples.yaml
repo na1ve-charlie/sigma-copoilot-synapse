@@ -1,0 +1,41 @@
+cases:
+  - name: fail records in time window
+    expression:
+      kind: all_of
+      expressions:
+        - kind: predicate
+          name: product_type_in
+          params:
+            values: [dm0608_3]
+        - kind: predicate
+          name: tested_at_between
+          params:
+            start: "2026-05-01"
+            end: "2026-05-31"
+        - kind: any_of
+          expressions:
+            - kind: predicate
+              name: summary_result_in
+              params:
+                values: [FAIL]
+            - kind: predicate
+              name: indicator_failed
+              params:
+                sensor: Vib1
+                segment: TS-01
+                indicator: RMS
+
+  - name: exclude one segment from sensor scope
+    expression:
+      kind: all_of
+      expressions:
+        - kind: predicate
+          name: sensor_in
+          params:
+            values: [Vib1, Vib2]
+        - kind: not
+          expression:
+            kind: predicate
+            name: test_segment_in
+            params:
+              values: [TS-03]
