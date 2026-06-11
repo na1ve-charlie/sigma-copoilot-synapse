@@ -1,0 +1,168 @@
+cases:
+  - message: "查找最近一周不合格记录"
+    expected:
+      - "task.nvh.selection.set_time_range"
+      - "task.nvh.selection.set_summary_result"
+      - "task.nvh.record_search"
+    slots:
+      - {action: "replace", entity_type: "time_range", target: "最近一周"}
+      - {action: "replace", entity_type: "summary_result", target: "fail"}
+      - {}
+    note: "Goal 示例：查询动作 + 时间/结果筛选"
+
+  - message: "导出 A 型号的原始数据"
+    expected:
+      - "task.nvh.selection.set_product_type"
+      - "task.nvh.selection.set_data_kind"
+      - "task.nvh.data_export"
+    slots:
+      - {action: "replace", entity_type: "product_type", target: "A"}
+      - {action: "replace", entity_type: "data_kind", target: "raw"}
+      - {}
+    note: "Goal 示例：导出动作 + 型号/数据类型"
+
+  - message: "Vib1 或 Vib2 任意一个不合格"
+    expected:
+      - "task.nvh.selection.set_sensor"
+      - "task.nvh.selection.set_sensor"
+      - "task.nvh.selection.set_filter_operator"
+      - "task.nvh.selection.set_summary_result"
+    slots:
+      - {action: "replace", entity_type: "sensor", target: "Vib1"}
+      - {action: "replace", entity_type: "sensor", target: "Vib2"}
+      - {action: "replace", entity_type: "filter_operator", target: "any"}
+      - {action: "replace", entity_type: "summary_result", target: "fail"}
+    note: "Goal 示例：AnyOf 语义的原子识别信息"
+
+  - message: "删除上面这些数据"
+    expected:
+      - "task.nvh.selection.use_active_selection"
+      - "task.nvh.data_delete"
+    slots:
+      - {action: "replace", entity_type: "selection_reference", target: "active_selection"}
+      - {}
+    note: "Goal 示例：活动选择引用 + 删除动作"
+
+  - message: "先备份这些数据，然后删除本地原始数据"
+    expected:
+      - "task.nvh.selection.use_active_selection"
+      - "task.nvh.data_backup"
+      - "task.nvh.data_delete"
+    slots:
+      - {action: "replace", entity_type: "selection_reference", target: "active_selection"}
+      - {}
+      - {}
+    note: "Goal 示例：有序复合动作，先备份再删除"
+
+  - message: "查看频谱"
+    expected: "task.nvh.data_observation.batch.frequency_spectrum"
+    note: "首批观察动作：频谱"
+
+  - message: "看 RMS 趋势"
+    expected:
+      - "task.nvh.selection.set_indicator"
+      - "task.nvh.data_observation.indicator_trend_analysis.trend"
+    slots:
+      - {action: "replace", entity_type: "indicator", target: "RMS"}
+      - {}
+    note: "首批观察动作：指标趋势"
+
+  - message: "下载上面这些数据的报告"
+    expected:
+      - "task.nvh.selection.use_active_selection"
+      - "task.nvh.report.download"
+    slots:
+      - {action: "replace", entity_type: "selection_reference", target: "active_selection"}
+      - {}
+    note: "首批报告动作：下载已有报告"
+
+  - message: "生成最近一周的不合格报告"
+    expected:
+      - "task.nvh.selection.set_time_range"
+      - "task.nvh.selection.set_summary_result"
+      - "task.nvh.report.generate"
+    slots:
+      - {action: "replace", entity_type: "time_range", target: "最近一周"}
+      - {action: "replace", entity_type: "summary_result", target: "fail"}
+      - {}
+    note: "首批报告动作：生成新报告"
+
+  - message: "生成这些数据的音频"
+    expected:
+      - "task.nvh.selection.use_active_selection"
+      - "task.nvh.audio.generate"
+    slots:
+      - {action: "replace", entity_type: "selection_reference", target: "active_selection"}
+      - {}
+    note: "首批音频动作"
+
+  - message: "重算上面这些数据的声彩图"
+    expected:
+      - "task.nvh.selection.use_active_selection"
+      - "task.nvh.colormap.recompute"
+    slots:
+      - {action: "replace", entity_type: "selection_reference", target: "active_selection"}
+      - {}
+    note: "首批重计算动作"
+
+  - message: "配置版本换成 A12"
+    expected: "task.nvh.selection.set_config_version"
+    slots: {action: "replace", entity_type: "config_version", target: "A12"}
+    note: "筛选条件：配置版本"
+
+  - message: "系统换成前桥"
+    expected: "task.nvh.selection.set_type_system"
+    slots: {action: "replace", entity_type: "type_system", target: "前桥"}
+    note: "筛选条件：检测系统"
+
+  - message: "只看 B 型号的前桥记录"
+    expected:
+      - "task.nvh.selection.set_product_type"
+      - "task.nvh.selection.set_type_system"
+    slots:
+      - {action: "replace", entity_type: "product_type", target: "B"}
+      - {action: "replace", entity_type: "type_system", target: "前桥"}
+    note: "组合筛选：型号 + 系统"
+
+  - message: "只看 SN1001"
+    expected: "task.nvh.selection.set_serial_number"
+    slots: {action: "replace", entity_type: "serial_number", target: "SN1001"}
+    note: "筛选条件：序列号"
+
+  - message: "测试段切到 Spd-rDL 再看频谱"
+    expected:
+      - "task.nvh.selection.set_test_segment"
+      - "task.nvh.data_observation.batch.frequency_spectrum"
+    slots:
+      - {action: "replace", entity_type: "test_segment", target: "Spd-rDL"}
+      - {}
+    note: "复合意图：测试段筛选 + 观察动作"
+
+  - message: "只看人工标记为异响"
+    expected: "task.nvh.selection.set_manual_tag"
+    slots: {action: "replace", entity_type: "manual_tag", target: "异响"}
+    note: "筛选条件：人工标记"
+
+  - message: "排除归档数据"
+    expected: "task.nvh.selection.set_archive_status"
+    slots: {action: "exclude", entity_type: "archive_status", target: "archived"}
+    note: "筛选条件：归档状态"
+
+  - message: "只看已经生成原始数据的记录"
+    expected:
+      - "task.nvh.selection.set_data_kind"
+      - "task.nvh.selection.set_artifact_availability"
+    slots:
+      - {action: "replace", entity_type: "data_kind", target: "raw"}
+      - {action: "replace", entity_type: "artifact_availability", target: "available"}
+    note: "筛选条件：数据制品可用性"
+
+  - message: "只看重复测过的序列号"
+    expected: "task.nvh.selection.set_repeat_serial"
+    slots: {action: "replace", entity_type: "repeat_serial", target: "repeated"}
+    note: "筛选条件：重复序列号"
+
+  - message: "只看最近 5 条"
+    expected: "task.nvh.selection.set_latest_n"
+    slots: {action: "replace", entity_type: "latest_n", target: "5"}
+    note: "筛选条件：latest N"

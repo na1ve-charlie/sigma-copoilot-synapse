@@ -1,0 +1,41 @@
+intents:
+- name: task.nvh.record_search
+  domain: nvh.search
+  embed_text: 查找记录, 查询记录, 搜索数据, 找不合格记录, 查最近的数据, record search
+  tree_text: 用户想按当前或新给出的筛选条件查询记录列表，不是在请求导出、删除、报告、音频或重计算。
+- name: task.nvh.data_export
+  domain: nvh.data_management
+  embed_text: 导出数据, 导出原始数据, 导出结果数据, export data, 下载数据包
+  tree_text: 用户想导出当前筛选范围内的数据。区分：下载报告属于 report.download，删除属于 data_delete。
+- name: task.nvh.data_backup
+  domain: nvh.data_management
+  embed_text: 备份数据, 先备份, backup data, 备份这些记录, 备份当前结果
+  tree_text: 用户想备份当前选择的数据，可与删除组合成有序复合意图。区分：单纯导出不应匹配备份。
+- name: task.nvh.data_delete
+  domain: nvh.data_management
+  embed_text: 删除数据, 删掉这些数据, 清理当前数据, delete data, 删除本地原始数据
+  tree_text: 用户想删除当前选择的数据。区分：删除数据集、删除配置或普通查询不应匹配这里。
+- name: task.nvh.data_observation.batch.frequency_spectrum
+  domain: nvh.data_observation
+  embed_text: 看频谱, 查看频谱, 频谱图, spectrum, 观察频谱, 查频谱
+  tree_text: 用户想查看普通频谱数据。区分：趋势、报告、导出和重计算不是频谱观察。
+- name: task.nvh.data_observation.indicator_trend_analysis.trend
+  domain: nvh.data_observation
+  embed_text: 看趋势, 指标趋势, RMS趋势, trend, 变化曲线, 趋势图
+  tree_text: 用户想查看指标在当前范围内的变化趋势。区分：频谱观察、质量统计和报告生成。
+- name: task.nvh.report.download
+  domain: nvh.report
+  embed_text: 下载报告, 导出报告, report download, 把报告下下来, 获取现成报告
+  tree_text: 用户想下载已经存在的报告，不是生成新报告或导出原始数据。
+- name: task.nvh.report.generate
+  domain: nvh.report
+  embed_text: 生成报告, 创建报告, report generation, 出一份报告, 新建分析报告
+  tree_text: 用户想基于当前范围生成新的报告，不是下载已有报告或直接导出数据。
+- name: task.nvh.audio.generate
+  domain: nvh.audio
+  embed_text: 生成音频, 导出音频, audio generation, 听一下这些数据, 做成声音
+  tree_text: 用户想把当前范围的数据生成音频结果，不是查看频谱、导出原始数据或下载报告。
+- name: task.nvh.colormap.recompute
+  domain: nvh.recompute
+  embed_text: 重算声彩图, 重算彩图, colormap recompute, 重建声彩图, 重新计算彩图
+  tree_text: 用户想重新计算当前范围关联的声彩图结果。区分：普通查询、导出和报告生成。

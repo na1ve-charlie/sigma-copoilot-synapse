@@ -1,0 +1,25 @@
+intents:
+- name: task.nvh.selection.set_manual_tag
+  domain: nvh.selection
+  embed_text: 人工标记, 异响标签, 只看标记, manual tag, 标签为异响
+  tree_text: 用户想按人工标记或人工标签筛选当前范围。
+- name: task.nvh.selection.set_archive_status
+  domain: nvh.selection
+  embed_text: 归档数据, 排除归档, 未归档, archive status, 只看未归档
+  tree_text: 用户想按归档状态增加、替换或排除筛选条件。
+- name: task.nvh.selection.set_artifact_availability
+  domain: nvh.selection
+  embed_text: 已生成原始数据, 有结果文件, 数据可用性, artifact available, 已生成制品
+  tree_text: 用户想按相关数据制品是否存在来筛选记录。
+- name: task.nvh.selection.set_repeat_serial
+  domain: nvh.selection
+  embed_text: 重复测试, 只看重复件, 复检工件
+  tree_text: 用户想按查看重复测试或重复序列号状态筛选当前范围（重复测试件具有相同的序列号）。
+- name: task.nvh.selection.set_latest_n
+  domain: nvh.selection
+  embed_text: 最近5条, 最近10条, latest N, 只看最近几条, 最新记录
+  tree_text: 用户想按最近 N 条的限制缩小当前结果范围。
+- name: task.nvh.selection.use_active_selection
+  domain: nvh.selection
+  embed_text: 上面这些数据, 这些记录, 当前选择的数据, active selection, 这几条数据
+  tree_text: 用户在引用当前激活的选择集，而不是重新指定新的业务实体值。

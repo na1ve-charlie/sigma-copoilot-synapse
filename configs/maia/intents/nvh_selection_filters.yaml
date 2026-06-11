@@ -1,0 +1,45 @@
+intents:
+- name: task.nvh.selection.set_time_range
+  domain: nvh.selection
+  embed_text: 最近一周, 最近一月, 时间范围, 指定时间, 只看今天, 最近的数据
+  tree_text: 用户想增加、替换或限制时间范围筛选条件。
+- name: task.nvh.selection.set_product_type
+  domain: nvh.selection
+  embed_text: A型号, B型号, 产品型号, 车型, product type, 只看这个型号
+  tree_text: 用户想增加、替换或排除产品型号筛选条件。
+- name: task.nvh.selection.set_config_version
+  domain: nvh.selection
+  embed_text: 配置版本, 版本号, A12, Cfg版本, config version
+  tree_text: 用户想增加、替换或移除配置版本筛选条件。
+- name: task.nvh.selection.set_type_system
+  domain: nvh.selection
+  embed_text: 前桥, 后桥, 检测系统, 系统换成, type system
+  tree_text: 用户想按检测系统或系统位点增加、替换或排除筛选条件。
+- name: task.nvh.selection.set_serial_number
+  domain: nvh.selection
+  embed_text: SN1001, 序列号, 车身编号, serial number, 只看这个编号
+  tree_text: 用户想按序列号、编号或精确记录标识筛选当前范围。
+- name: task.nvh.selection.set_summary_result
+  domain: nvh.selection
+  embed_text: 不合格, 合格, NG, FAIL, PASS, 只看坏件
+  tree_text: 用户想按综合结果筛选，例如合格、不合格、NG 或 FAIL。
+- name: task.nvh.selection.set_sensor
+  domain: nvh.selection
+  embed_text: Vib1, Vib2, 传感器, 只看这个传感器, sensor, 加上传感器
+  tree_text: 用户想增加、替换、移除或组合传感器筛选条件。
+- name: task.nvh.selection.set_test_segment
+  domain: nvh.selection
+  embed_text: 测试段, Spd-rDL, idle, 工况段, test segment
+  tree_text: 用户想增加、替换、移除或排除测试段筛选条件。
+- name: task.nvh.selection.set_indicator
+  domain: nvh.selection
+  embed_text: RMS, 峰值, 指标, indicator, 只看这个指标
+  tree_text: 用户想增加、替换或限制指标筛选条件，可与趋势或观察动作同句出现。
+- name: task.nvh.selection.set_data_kind
+  domain: nvh.selection
+  embed_text: 原始数据, 结果数据, 时域结果, 数据类型, data kind
+  tree_text: 用户想限定处理的数据类型，例如原始数据、结果数据或特定数据制品。
+- name: task.nvh.selection.set_filter_operator
+  domain: nvh.selection
+  embed_text: 任意一个, 任一项, 全部同时, any, all, not
+  tree_text: 用户想显式表达组合筛选逻辑，例如 any、all 或排除关系。
