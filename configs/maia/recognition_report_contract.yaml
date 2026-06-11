@@ -1,0 +1,150 @@
+name: RecognitionReport
+version: "2026-06-11"
+purpose: >
+  Stable report contract for `maia recognize` output before SelectionSet,
+  task execution, or `/turns` integration goals begin.
+field_order:
+  - message
+  - verdict
+  - requires_confirmation
+  - degraded
+  - intents
+  - action_intents
+  - slot_operations
+  - diagnostics
+public_field_sources:
+  message: cli input echo
+  verdict: themis.decision.verdict
+  requires_confirmation: themis.decision.requires_confirmation
+  degraded: themis.decision.degraded
+  intents: themis.decision.intents
+  action_intents: themis.decision.action_intents
+  slot_operations: themis.decision.slot_operations
+  diagnostics: themis.decision.diagnostics
+field_shapes:
+  message:
+    type: string
+    required: true
+  verdict:
+    type: string
+    required: true
+    enum:
+      - clear
+      - ambiguous
+      - low
+  requires_confirmation:
+    type: boolean
+    required: true
+    note: themis ambiguity flag only; not business risk confirmation
+  degraded:
+    type: boolean
+    required: true
+  intents:
+    type: array
+    required: true
+    item_shape: intent
+  action_intents:
+    type: array
+    required: true
+    item_shape: action_intent
+  slot_operations:
+    type: array
+    required: true
+    item_shape: slot_operation
+  diagnostics:
+    type: object
+    required: true
+    default_without_flag: {}
+    note: only safe diagnostics may be emitted when `--diagnostics` is enabled
+nested_shapes:
+  intent:
+    required_fields:
+      - name
+      - score
+      - slots
+    slots_note: preserve Themis public slot payload without adding app-specific fields
+  action_intent:
+    required_fields:
+      - name
+      - score
+    forbidden_fields:
+      - slots
+  slot_operation:
+    required_fields:
+      - intent
+      - score
+      - action
+      - entity_type
+      - target
+      - slot_valid
+    scalar_or_array_fields:
+      - intent
+      - score
+      - action
+      - target
+      - slot_valid
+    note: preserve Themis merged-by-entity-type structure for later reducers
+rendering_rules:
+  - default human view is sectioned as Input, Decision, Action Intents, Slot Operations, Diagnostics
+  - "empty lists must render as `(none)` instead of dropping the section"
+  - "`--json` emits machine-readable JSON with 2-space indentation and unescaped Chinese"
+  - "`--compact` is only valid together with `--json`"
+  - logs and errors go to stderr; stdout only contains the rendered result
+  - "`--diagnostics` may reveal safe diagnostics but never prompt text, tokens, or secrets"
+forbidden_output_fields:
+  - plan
+  - task_id
+  - selection_set_id
+  - selection_hash
+  - filter_expression
+  - preview
+  - risk_level
+  - confirmation_token
+initial_scope:
+  action_intents:
+    - task.nvh.record_search
+    - task.nvh.data_export
+    - task.nvh.data_backup
+    - task.nvh.data_delete
+    - task.nvh.data_observation.batch.frequency_spectrum
+    - task.nvh.data_observation.indicator_trend_analysis.trend
+    - task.nvh.report.download
+    - task.nvh.report.generate
+    - task.nvh.audio.generate
+    - task.nvh.colormap.recompute
+  slot_entity_types:
+    - time_range
+    - product_type
+    - config_version
+    - type_system
+    - serial_number
+    - summary_result
+    - sensor
+    - test_segment
+    - indicator
+    - manual_tag
+    - archive_status
+    - artifact_availability
+    - repeat_serial
+    - latest_n
+    - filter_operator
+    - data_kind
+    - selection_reference
+  reference_targets:
+    - active_selection
+    - 上面这些数据
+    - 这 N 条数据
+json_example:
+  message: 删除上面这些数据
+  verdict: clear
+  requires_confirmation: false
+  degraded: false
+  intents:
+    - name: task.nvh.data_delete
+      score: 0.98
+      slots: {}
+  action_intents:
+    - name: task.nvh.data_delete
+      score: 0.98
+  slot_operations: []
+  diagnostics: {}
