@@ -1,5 +1,25 @@
 """Maia recognition primitives for the standalone NL -> Themis milestone."""
 
+from maia.api import (
+    ClarifyPlan,
+    ConfirmPlan,
+    ContextClearPlan,
+    ContextUpdatePlan,
+    ProductContext,
+    Prompt,
+    PromptCandidate,
+    ReplyPlan,
+    SlotStateChange,
+    SlotStateDiff,
+    TaskPlan,
+    TimeRange,
+    TurnPlanResponse,
+    TurnRequest,
+    TurnResponse,
+    TypeSystemContext,
+    WorkspaceContext,
+)
+from maia.presentation import TurnPresenter, present_turn
 from maia.recognition import (
     DEFAULT_RECOGNITION_CONFIG_PATH,
     MaiaRecognitionConfig,
@@ -17,17 +37,36 @@ from maia.recognition import (
 )
 
 __all__ = [
+    "ClarifyPlan",
+    "ConfirmPlan",
+    "ContextClearPlan",
+    "ContextUpdatePlan",
     "DEFAULT_RECOGNITION_CONFIG_PATH",
     "MaiaRecognitionConfig",
     "MaiaRecognizer",
+    "ProductContext",
+    "Prompt",
+    "PromptCandidate",
     "RecognitionActionIntent",
     "RecognitionIntent",
     "RecognitionLLMConfig",
     "RecognitionReport",
     "RecognitionSlotOperation",
+    "ReplyPlan",
+    "SlotStateChange",
+    "SlotStateDiff",
     "ThemisRecognitionConfig",
+    "TaskPlan",
+    "TimeRange",
+    "TurnPlanResponse",
+    "TurnPresenter",
+    "TurnRequest",
+    "TurnResponse",
+    "TypeSystemContext",
+    "WorkspaceContext",
     "build_maia_recognizer_from_config",
     "build_themis_recognizer",
     "load_cli_resolver",
     "load_recognition_config",
+    "present_turn",
 ]
