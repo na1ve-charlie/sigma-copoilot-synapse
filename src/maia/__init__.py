@@ -12,6 +12,7 @@ from maia.recognition import (
     ThemisRecognitionConfig,
     build_maia_recognizer_from_config,
     build_themis_recognizer,
+    load_cli_resolver,
     load_recognition_config,
 )
 
@@ -27,5 +28,6 @@ __all__ = [
     "ThemisRecognitionConfig",
     "build_maia_recognizer_from_config",
     "build_themis_recognizer",
+    "load_cli_resolver",
     "load_recognition_config",
 ]

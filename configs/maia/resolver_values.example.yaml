@@ -1,0 +1,14 @@
+values:
+  filter_operator:
+    - all
+    - any
+    - not
+  sensor:
+    - Vib1
+    - Vib2
+  test_segment:
+    - runup
+    - coast
+  indicator:
+    - RMS
+    - Spectrum

@@ -12,6 +12,7 @@ from maia.recognition.adapter import (
     build_maia_recognizer_from_config,
     build_themis_recognizer,
 )
+from maia.recognition.resolver_loader import load_cli_resolver
 from maia.recognition.report import (
     RecognitionActionIntent,
     RecognitionIntent,
@@ -31,5 +32,6 @@ __all__ = [
     "ThemisRecognitionConfig",
     "build_maia_recognizer_from_config",
     "build_themis_recognizer",
+    "load_cli_resolver",
     "load_recognition_config",
 ]
