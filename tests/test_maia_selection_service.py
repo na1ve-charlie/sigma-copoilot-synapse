@@ -41,6 +41,26 @@ def test_selection_set_service_reuses_existing_hash_for_identical_query() -> Non
     assert repository.list_recent() == (first,)
 
 
+def test_selection_set_service_attaches_materialized_dataset_id() -> None:
+    from maia.selection.service import SelectionSetService
+
+    service = SelectionSetService(
+        InMemorySelectionSetRepository(),
+        SelectionQueryCompiler(_record_client()),
+        source_version="sigma-fixture-v1",
+        materializer=_Materializer("dataset-1"),
+    )
+
+    selection = asyncio.run(
+        service.create_or_derive(
+            SelectionDraft(expression=_product("A")),
+            workspace_context=_workspace_context(),
+        )
+    )
+
+    assert selection.dataset_id == "dataset-1"
+
+
 @pytest.mark.parametrize(
     ("draft", "expected_ids", "expected_operation"),
     [
@@ -144,6 +164,15 @@ class _RecordClient:
         if key not in self._pages:
             raise ValueError(f"unsupported query branch: {key}")
         return self._pages[key][0]
+
+
+class _Materializer:
+    def __init__(self, dataset_id: str) -> None:
+        self._dataset_id = dataset_id
+
+    async def materialize(self, selection_set, *, workspace_context) -> str:
+        del selection_set, workspace_context
+        return self._dataset_id
 
 
 def _record_client() -> _RecordClient:

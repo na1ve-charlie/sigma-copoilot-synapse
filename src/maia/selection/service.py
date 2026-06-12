@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
+from typing import Protocol
 from uuid import uuid4
 
 from maia.api import WorkspaceContext
@@ -10,6 +11,15 @@ from maia.selection.compiler import SelectionQueryCompiler
 from maia.selection.expression import AllOf, FilterExpression, Not
 from maia.selection.query import SelectionQuery
 from maia.selection.sets import SelectionLineage, SelectionSet, SelectionSetRepository, SelectionSort
+
+
+class SelectionSetMaterializer(Protocol):
+    async def materialize(
+        self,
+        selection_set: SelectionSet,
+        *,
+        workspace_context: WorkspaceContext | None,
+    ) -> str | None: ...
 
 
 class SelectionSetService:
@@ -22,6 +32,7 @@ class SelectionSetService:
         expires_in: timedelta | None = None,
         id_factory: Callable[[], str] | None = None,
         clock: Callable[[], datetime] | None = None,
+        materializer: SelectionSetMaterializer | None = None,
     ) -> None:
         if not source_version.strip():
             raise ValueError("source_version must not be blank")
@@ -31,6 +42,7 @@ class SelectionSetService:
         self._expires_in = expires_in
         self._id_factory = id_factory or (lambda: f"sel-{uuid4().hex}")
         self._clock = clock or (lambda: datetime.now(UTC))
+        self._materializer = materializer
 
     async def create_or_derive(
         self,
@@ -62,6 +74,13 @@ class SelectionSetService:
             expires_at=None if self._expires_in is None else created_at + self._expires_in,
             lineage=self._lineage(base, compiled.query.expression, compiled.query.sort, compiled.query.limit, compiled.record_ids),
         )
+        if self._materializer is not None:
+            dataset_id = await self._materializer.materialize(
+                selection_set,
+                workspace_context=workspace_context,
+            )
+            if dataset_id is not None:
+                selection_set = selection_set.model_copy(update={"dataset_id": dataset_id})
         existing = self._repository.find_by_hash(selection_set.selection_hash)
         return existing or self._repository.save(selection_set)
 
@@ -110,6 +129,8 @@ def _is_exclude(base: FilterExpression, current: FilterExpression) -> bool:
         and len(current_negative) > len(base_negative)
         and all(component in current_negative for component in base_negative)
     )
+
+
 def _split_components(expression: FilterExpression) -> tuple[tuple[FilterExpression, ...], tuple[FilterExpression, ...]]:
     parts = expression.expressions if isinstance(expression, AllOf) else (expression,)
     positive: list[FilterExpression] = []
@@ -122,4 +143,4 @@ def _split_components(expression: FilterExpression) -> tuple[tuple[FilterExpress
     return tuple(positive), tuple(negative)
 
 
-__all__ = ["SelectionSetService"]
+__all__ = ["SelectionSetMaterializer", "SelectionSetService"]

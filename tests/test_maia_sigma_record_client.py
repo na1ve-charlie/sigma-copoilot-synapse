@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 
 from maia.api import WorkspaceContext
+from maia.integrations.sigma import MutableSigmaTokenProvider
 from maia.integrations.sigma.record_client import TestRecordClient, TestRecordClientError
 
 
@@ -91,6 +92,35 @@ def test_test_record_client_calls_legacy_endpoint_with_mapped_query_params() -> 
         "type": "dm0518",
         "sumList": "FAIL",
     }
+
+
+def test_test_record_client_uses_mutable_token_provider() -> None:
+    captured_headers: list[dict[str, str]] = []
+
+    def transport(
+        url: str,
+        params: dict[str, object],
+        headers: dict[str, str],
+        timeout: float,
+    ) -> tuple[int, str]:
+        del url, params, timeout
+        captured_headers.append(headers)
+        return 200, json.dumps({"code": 0, "data": {"total": 0, "list": []}})
+
+    async def exercise() -> None:
+        provider = MutableSigmaTokenProvider("token-v1")
+        client = TestRecordClient(
+            base_url="http://sigma.local/",
+            token_provider=provider,
+            transport=transport,
+        )
+        await client.list_records(None, workspace_context=_workspace_context())
+        provider.set("token-v2")
+        await client.list_records(None, workspace_context=_workspace_context())
+
+    asyncio.run(exercise())
+
+    assert captured_headers == [{"Token": "token-v1"}, {"Token": "token-v2"}]
 
 
 def test_test_record_client_wraps_transport_errors_with_request_context() -> None:

@@ -4,12 +4,16 @@ from maia.conversation.draft import SelectionDraft, SelectionDraftReducer, Selec
 from maia.recognition.report import RecognitionReport, RecognitionSlotOperation
 
 
+_WEEK_RANGE = "start=2026-06-05 15:30:00; end=2026-06-12 15:30:00"
+_MONTH_RANGE = "start=2026-05-13 15:30:00; end=2026-06-12 15:30:00"
+
+
 def test_reducer_builds_all_of_expression_for_replace_conditions() -> None:
     draft = SelectionDraftReducer().apply(
         None,
         _report(
-            _slot_operation("time_range", "replace", "最近一周"),
-            _slot_operation("summary_result", "replace", "fail"),
+            _slot_operation("time_range", "replace", _WEEK_RANGE),
+            _slot_operation("summary_result", "replace", "不合格"),
         ),
     )
 
@@ -22,13 +26,16 @@ def test_reducer_builds_all_of_expression_for_replace_conditions() -> None:
         "expressions": [
             {
                 "kind": "predicate",
-                "name": "time_range_in",
-                "params": {"values": ["最近一周"]},
+                "name": "tested_at_between",
+                "params": {
+                    "start": "2026-06-05 15:30:00",
+                    "end": "2026-06-12 15:30:00",
+                },
             },
             {
                 "kind": "predicate",
                 "name": "summary_result_in",
-                "params": {"values": ["fail"]},
+                "params": {"values": ["不合格"]},
             },
         ],
     }
@@ -45,7 +52,7 @@ def test_reducer_preserves_any_operator_for_same_dimension_values() -> None:
                 (True, True),
             ),
             _slot_operation("filter_operator", "replace", "any"),
-            _slot_operation("summary_result", "replace", "fail"),
+            _slot_operation("summary_result", "replace", "不合格"),
         ),
     )
 
@@ -71,7 +78,7 @@ def test_reducer_preserves_any_operator_for_same_dimension_values() -> None:
             {
                 "kind": "predicate",
                 "name": "summary_result_in",
-                "params": {"values": ["fail"]},
+                "params": {"values": ["不合格"]},
             },
         ],
     }
@@ -104,14 +111,14 @@ def test_reducer_replace_swaps_only_the_target_dimension() -> None:
     first = reducer.apply(
         None,
         _report(
-            _slot_operation("time_range", "replace", "最近一周"),
-            _slot_operation("summary_result", "replace", "fail"),
+            _slot_operation("time_range", "replace", _WEEK_RANGE),
+            _slot_operation("summary_result", "replace", "不合格"),
         ),
     )
 
     second = reducer.apply(
         first,
-        _report(_slot_operation("time_range", "replace", "最近一月")),
+        _report(_slot_operation("time_range", "replace", _MONTH_RANGE)),
     )
 
     assert second.expression is not None
@@ -120,13 +127,16 @@ def test_reducer_replace_swaps_only_the_target_dimension() -> None:
         "expressions": [
             {
                 "kind": "predicate",
-                "name": "time_range_in",
-                "params": {"values": ["最近一月"]},
+                "name": "tested_at_between",
+                "params": {
+                    "start": "2026-05-13 15:30:00",
+                    "end": "2026-06-12 15:30:00",
+                },
             },
             {
                 "kind": "predicate",
                 "name": "summary_result_in",
-                "params": {"values": ["fail"]},
+                "params": {"values": ["不合格"]},
             },
         ],
     }
@@ -175,7 +185,7 @@ def test_latest_n_updates_limit_and_default_sort() -> None:
 
 def test_clear_resets_expression_and_limit_but_preserves_base_selection_id() -> None:
     reducer = SelectionDraftReducer()
-    draft = reducer.apply(None, _report(_slot_operation("summary_result", "replace", "fail")))
+    draft = reducer.apply(None, _report(_slot_operation("summary_result", "replace", "不合格")))
     limited = reducer.apply(draft, _report(_slot_operation("latest_n", "replace", "5")))
     with_base = limited.model_copy(
         update={"base_selection_id": "sel-1", "pending_questions": ("clarify",)},

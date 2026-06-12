@@ -14,6 +14,7 @@ from maia.api import WorkspaceContext
 from maia.integrations.sigma.request_mapper import LegacyRecordRequestMapper
 from maia.integrations.sigma.records import TestRecordPage
 from maia.integrations.sigma.response_mapper import LegacyRecordResponseMapper
+from maia.integrations.sigma.token_provider import SigmaTokenProvider
 from maia.selection.expression import FilterExpression
 
 
@@ -53,6 +54,7 @@ class TestRecordClient:
         *,
         base_url: str,
         token: str | None = None,
+        token_provider: SigmaTokenProvider | None = None,
         timeout: float = 5.0,
         endpoint_path: str = LEGACY_RECORDS_PATH,
         transport: RecordTransport | None = None,
@@ -69,6 +71,7 @@ class TestRecordClient:
         self._url = f"{normalized_base_url}{self._path}"
         self._timeout = timeout
         self._token = _optional_token(token)
+        self._token_provider = token_provider
         self._transport = transport or _fetch_with_urllib
         self._request_mapper = request_mapper or LegacyRecordRequestMapper()
         self._response_mapper = response_mapper or LegacyRecordResponseMapper()
@@ -141,7 +144,10 @@ class TestRecordClient:
 
         refreshed_token = _refresh_token(payload)
         if allow_refresh and refreshed_token:
-            self._token = refreshed_token
+            if self._token_provider is None:
+                self._token = refreshed_token
+            else:
+                self._token_provider.set(refreshed_token)
             return await self._request_payload(request_params, allow_refresh=False)
 
         backend_error = _backend_error(payload, status_code)
@@ -160,7 +166,8 @@ class TestRecordClient:
         return payload, status_code
 
     def _headers(self) -> dict[str, str]:
-        return {"Token": self._token} if self._token else {}
+        token = self._token if self._token_provider is None else self._token_provider.get()
+        return {"Token": token} if token else {}
 
 
 def _fetch_with_urllib(

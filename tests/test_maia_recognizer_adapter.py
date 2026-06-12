@@ -175,6 +175,41 @@ def test_maia_recognizer_can_include_public_diagnostics() -> None:
     }
 
 
+def test_maia_recognizer_normalizes_public_slot_targets() -> None:
+    decision = IntentDecision(
+        verdict=RecognitionVerdict.CLEAR,
+        intents=(
+            IntentMatch(
+                name="task.nvh.selection.set_summary_result",
+                score=0.95,
+                slots=IntentSlot(
+                    action="replace",
+                    entity_type="summary_result",
+                    target="OK",
+                    slot_valid=True,
+                ),
+            ),
+            IntentMatch(
+                name="task.nvh.selection.set_time_range",
+                score=0.94,
+                slots=IntentSlot(
+                    action="replace",
+                    entity_type="time_range",
+                    target="2026-06-12前",
+                    slot_valid=True,
+                ),
+            ),
+        ),
+    )
+
+    report = run(MaiaRecognizer(FakeRecognizer(decision)).recognize("show records"))
+
+    assert report.intents[0].slots["target"] == "合格"
+    assert report.intents[1].slots["target"] == "end=2026-06-12 00:00:00"
+    assert report.slot_operations[0].target == "合格"
+    assert report.slot_operations[1].target == "end=2026-06-12 00:00:00"
+
+
 def test_build_maia_recognizer_from_config_uses_public_themis_builder(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -201,6 +236,7 @@ def test_build_maia_recognizer_from_config_uses_public_themis_builder(
             [
                 "recognition:",
                 "  intents_path: intents",
+                "  tree_prompt_path: tree_prompt.yaml",
                 "  report_contract_path: report.yaml",
                 "  llm:",
                 "    model: test-model",
@@ -209,6 +245,61 @@ def test_build_maia_recognizer_from_config_uses_public_themis_builder(
                 "    delta: 0.15",
                 "    min_intent_score: 0.6",
                 "    build_index_on_init: true",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    (tmp_path / "tree_prompt.yaml").write_text(
+        "\n".join(
+            [
+                "template: |",
+                "  TEMPLATE",
+                "  {tree_text}",
+                "  TYPES {entity_types}",
+                "  {examples_section}",
+                "  MSG {message}",
+                "examples_path: prompt_examples.yaml",
+                "example_rendering:",
+                "  max_examples: 4",
+                "  group_selection: message_aware",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    (tmp_path / "prompt_examples.yaml").write_text(
+        "\n".join(
+            [
+                "examples:",
+                '  - input: "switch {sensor}"',
+                "    variables:",
+                "      sensor:",
+                '        entity_type: "sensor"',
+                "        pick: 0",
+                "    intents:",
+                '      - intent: "task.demo.switch_sensor"',
+                '        action: "replace"',
+                '        entity_type: "sensor"',
+                '        target_from: "sensor"',
+            ]
+        ),
+        encoding="utf-8",
+    )
+    (tmp_path / "calibration_cases.yaml").write_text(
+        "\n".join(
+            [
+                "cases:",
+                '  - message: "find fail records from last week"',
+                "    expected:",
+                '      - "task.demo.selection.set_time_range"',
+                '      - "task.demo.selection.set_summary_result"',
+                '      - "task.demo.record_search"',
+                "    slots:",
+                '      - {action: "replace", entity_type: "time_range", target: "last_week"}',
+                '      - {action: "replace", entity_type: "summary_result", target: "FAIL"}',
+                "      - {}",
+                '  - message: "latest 5 only"',
+                '    expected: "task.demo.selection.set_latest_n"',
+                '    slots: {action: "replace", entity_type: "latest_n", target: "5"}',
             ]
         ),
         encoding="utf-8",
@@ -257,7 +348,23 @@ def test_build_maia_recognizer_from_config_uses_public_themis_builder(
     assert created["config"].delta == 0.15
     assert created["config"].min_intent_score == 0.6
     assert created["config"].build_index_on_init is True
-    assert created["tree_prompt"] is None
+    assert created["tree_prompt"] is not None
+    assert created["tree_prompt"].template.startswith("TEMPLATE")
+    assert created["tree_prompt"].example_rendering.max_examples == 4
+    assert created["tree_prompt"].examples[0].input == "find fail records from last week"
+    assert [item.intent for item in created["tree_prompt"].examples[0].intents] == [
+        "task.demo.selection.set_time_range",
+        "task.demo.selection.set_summary_result",
+        "task.demo.record_search",
+    ]
+    assert created["tree_prompt"].examples[1].input == "switch {sensor}"
+    assert set(created["tree_prompt"].entity_types) == {
+        "latest_n",
+        "sensor",
+        "summary_result",
+        "time_range",
+    }
+    assert created["tree_prompt"].resolver_entity_types == ("sensor",)
 
 
 def test_build_maia_recognizer_from_config_builds_llm_from_settings(

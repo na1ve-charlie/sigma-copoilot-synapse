@@ -6,6 +6,7 @@ from typing import Literal, TypeAlias
 
 from pydantic import BaseModel, ConfigDict, field_validator
 
+from maia.recognition.normalization import time_range_params
 from maia.recognition.report import RecognitionReport, RecognitionSlotOperation
 from maia.selection.expression import AllOf, AnyOf, FilterExpression, Not, Predicate
 
@@ -24,7 +25,7 @@ _PREDICATE_NAMES = {
     "serial_number": "serial_number_in",
     "summary_result": "summary_result_in",
     "test_segment": "test_segment_in",
-    "time_range": "time_range_in",
+    "time_range": "tested_at_between",
     "type_system": "type_system_in",
 }
 _ENTITY_TYPES = {name: entity for entity, name in _PREDICATE_NAMES.items()}
@@ -256,6 +257,13 @@ def _component(entity_type: str, targets: tuple[Scalar, ...], operator: str | No
 
 
 def _predicate(entity_type: str, targets: tuple[Scalar, ...]) -> Predicate:
+    if entity_type == "time_range":
+        if len(targets) != 1:
+            raise ValueError("time_range selection predicates must use a single target")
+        return Predicate(
+            name=_PREDICATE_NAMES[entity_type],
+            params=time_range_params(str(targets[0])),
+        )
     return Predicate(name=_PREDICATE_NAMES[entity_type], params={"values": targets})
 
 

@@ -52,6 +52,7 @@ class SelectionSet(BaseModel):
     record_count: int
     record_ids: tuple[str, ...] | None = None
     snapshot_ref: str | None = None
+    dataset_id: str | None = None
     source_version: str
     created_at: datetime
     expires_at: datetime | None = None
@@ -97,6 +98,13 @@ class SelectionSet(BaseModel):
     def _validate_snapshot_ref(cls, value: str | None) -> str | None:
         if value is not None and not value.strip():
             raise ValueError("snapshot_ref must not be blank")
+        return value
+
+    @field_validator("dataset_id")
+    @classmethod
+    def _validate_dataset_id(cls, value: str | None) -> str | None:
+        if value is not None and not value.strip():
+            raise ValueError("dataset_id must not be blank")
         return value
 
     @model_validator(mode="after")

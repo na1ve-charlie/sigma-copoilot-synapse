@@ -301,14 +301,14 @@ def test_default_runtime_accepts_fake_dependencies_end_to_end(tmp_path: Path) ->
         json={
             "session_id": "s1",
             "workspace_context": {"dataset_id": "1152"},
-            "message": "鏌ヤ竴缁存暟鎹?,
+            "message": "鏌ヤ竴缁存暟鎹?",
         },
     )
 
     assert response.status_code == 200
     assert catalog_loader.workspace_dataset_ids == ["1152"]
     assert run(recognizer.resolvers[0].resolve("sensor")) == [{"value": "VibX"}]
-    assert recognizer.messages == ["鏌ヤ竴缁存暟鎹?]
+    assert recognizer.messages == ["鏌ヤ竴缁存暟鎹?"]
     assert response.json()["plan"] == {
         "kind": "task",
         "status": "ready",
@@ -539,7 +539,7 @@ def test_runtime_uses_committed_slot_updates_for_same_turn_action(
         "/turns",
         json={
             "session_id": "s1",
-            "message": "鍒囨崲鍒?VibX run-1 鐪嬮璋?,
+            "message": "鍒囨崲鍒?VibX run-1 鐪嬮璋?",
         },
     )
 

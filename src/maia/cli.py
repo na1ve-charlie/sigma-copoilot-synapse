@@ -96,10 +96,6 @@ def _run_recognize(args: argparse.Namespace) -> int:
     if args.show_selection_set and args.message is None:
         print("--show-selection-set requires --message", file=sys.stderr)
         return 2
-    if (args.show_selection_set or args.load_records) and args.workspace_context is None:
-        flag = "--load-records" if args.load_records else "--show-selection-set"
-        print(f"{flag} requires --workspace-context", file=sys.stderr)
-        return 2
     if args.json and (args.show_selection_set or args.load_records):
         print("preview flags are text-mode only", file=sys.stderr)
         return 2
@@ -247,11 +243,9 @@ def build_query_preview(
     resolver: Any | None,
     load_records: bool,
 ) -> QueryPreview:
-    if workspace_context_path is None:
-        raise ValueError("workspace context path is required")
     return asyncio.run(_build_query_preview(
         message=message,
-        workspace_context=WorkspaceContext.model_validate(
+        workspace_context=None if workspace_context_path is None else WorkspaceContext.model_validate(
             json.loads(workspace_context_path.read_text(encoding="utf-8"))
         ),
         resolver=resolver,
@@ -262,7 +256,7 @@ def build_query_preview(
 async def _build_query_preview(
     *,
     message: str,
-    workspace_context: WorkspaceContext,
+    workspace_context: WorkspaceContext | None,
     resolver: Any | None,
     load_records: bool,
 ) -> QueryPreview:
@@ -341,11 +335,12 @@ class _PreviewRecognizer:
         self,
         message: str,
         *,
+        resolver: Any | None = None,
         include_diagnostics: bool = False,
     ) -> RecognitionReport:
         report = await self._recognizer.recognize(
             message,
-            resolver=self._resolver,
+            resolver=self._resolver if resolver is None else resolver,
             include_diagnostics=include_diagnostics,
         )
         self.last_report = report

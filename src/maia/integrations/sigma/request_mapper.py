@@ -59,7 +59,7 @@ class LegacyRecordRequestParams(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True, populate_by_name=True)
     __test__: ClassVar[bool] = False
 
-    data_group_id: str = Field(serialization_alias="dataGroupId")
+    data_group_id: str | None = Field(default=None, serialization_alias="dataGroupId")
     lang: str = "zh"
     page: int = 1
     rows: int = 500
@@ -134,16 +134,13 @@ class LegacyRecordRequestMapper:
         page: int | None = None,
         rows: int | None = None,
     ) -> LegacyRecordRequestParams:
-        if workspace_context is None or not workspace_context.dataset_id:
-            raise ValueError("workspace_context.dataset_id is required for legacy record queries")
-
         updates: dict[str, Any] = {}
         if expression is not None:
             for predicate in _conjunctive_predicates(parse_filter_expression(expression)):
                 _apply_predicate(updates, predicate)
         return LegacyRecordRequestParams(
-            data_group_id=workspace_context.dataset_id,
-            lang=workspace_context.lang,
+            data_group_id=None if workspace_context is None else workspace_context.dataset_id,
+            lang="zh" if workspace_context is None else workspace_context.lang,
             page=self._default_page if page is None else page,
             rows=self._default_rows if rows is None else rows,
             **updates,
@@ -173,8 +170,14 @@ def _apply_predicate(target: dict[str, Any], predicate: Predicate) -> None:
         _set_once(target, _TEXT_FIELDS[predicate.name], _single_value(predicate))
         return
     if predicate.name == "tested_at_between":
-        _set_once(target, "start_time", _required_param(predicate, "start"))
-        _set_once(target, "end_time", _required_param(predicate, "end"))
+        start = predicate.params.get("start")
+        end = predicate.params.get("end")
+        if start is None and end is None:
+            raise ValueError(f"{predicate.name} requires params.start or params.end")
+        if start is not None:
+            _set_once(target, "start_time", _required_param(predicate, "start"))
+        if end is not None:
+            _set_once(target, "end_time", _required_param(predicate, "end"))
         return
     if predicate.name == "time_range_in":
         start, end = _time_range_bounds(predicate)

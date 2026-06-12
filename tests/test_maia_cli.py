@@ -356,13 +356,10 @@ def test_cli_message_mode_can_render_selection_set_and_loaded_records(
     assert "2. rec-002  SN1002" in output.out
 
 
-def test_cli_preview_flags_require_message_mode_and_workspace_context(
+def test_cli_preview_flags_require_message_mode_only(
     monkeypatch,
-    tmp_path,
     capsys,
 ) -> None:
-    workspace_path = tmp_path / "workspace-context.json"
-    workspace_path.write_text('{"dataset_id":"1152","lang":"zh"}', encoding="utf-8")
     monkeypatch.setattr(
         "maia.cli.build_query_preview",
         lambda **_: (_ for _ in ()).throw(AssertionError("should not build preview")),
@@ -371,8 +368,6 @@ def test_cli_preview_flags_require_message_mode_and_workspace_context(
     exit_code = main(
         [
             "recognize",
-            "--workspace-context",
-            str(workspace_path),
             "--load-records",
         ]
     )
@@ -381,19 +376,6 @@ def test_cli_preview_flags_require_message_mode_and_workspace_context(
     assert exit_code == 2
     assert output.out == ""
     assert "--load-records requires --message" in output.err
-
-    exit_code = main(
-        [
-            "recognize",
-            "--message",
-            "show failing records",
-            "--show-selection-set",
-        ]
-    )
-    output = capsys.readouterr()
-
-    assert exit_code == 2
-    assert "--show-selection-set requires --workspace-context" in output.err
 
 
 def test_cli_resolver_values_are_loaded_and_passed_to_runtime_recognition(

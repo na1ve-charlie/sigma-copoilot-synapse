@@ -114,7 +114,19 @@ def test_default_maia_recognizer_config_now_loads_first_batch_intents(
         }
     )
     assert created["llm"] == "llm-client"
-    assert created["tree_prompt"] is None
+    assert created["tree_prompt"] is not None
+    assert "task.nvh.record_search" in {
+        intent.intent
+        for example in created["tree_prompt"].examples
+        for intent in example.intents
+    }
+    assert {
+        "latest_n",
+        "product_type",
+        "selection_reference",
+        "summary_result",
+        "time_range",
+    }.issubset(set(created["tree_prompt"].entity_types))
 
 
 def _load_maia_entries() -> list[Any]:

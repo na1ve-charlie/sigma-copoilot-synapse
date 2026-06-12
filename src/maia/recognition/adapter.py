@@ -20,7 +20,9 @@ from maia.recognition.config import (
     MaiaRecognitionConfig,
     load_recognition_config,
 )
+from maia.recognition.normalization import normalize_entity_target
 from maia.recognition.report import RecognitionReport
+from maia.recognition.tree_prompt_loader import load_tree_prompt_config
 
 
 class IntentRecognizer(Protocol):
@@ -107,6 +109,7 @@ def build_themis_recognizer(
         llm_client,
         resolver=resolver,
         config=RecognitionConfig(**config.themis.model_dump(mode="python")),
+        tree_prompt=load_tree_prompt_config(config),
     )
 
 
@@ -142,10 +145,15 @@ def _slot_payload(slot: Any) -> dict[str, Any]:
     payload: dict[str, Any] = {}
     if getattr(slot, "action", ""):
         payload["action"] = slot.action
-    if getattr(slot, "entity_type", ""):
-        payload["entity_type"] = slot.entity_type
+    entity_type = getattr(slot, "entity_type", "")
+    if entity_type:
+        payload["entity_type"] = entity_type
     if getattr(slot, "target", ""):
-        payload["target"] = slot.target
+        payload["target"] = _normalized_target(
+            entity_type,
+            slot.target,
+            getattr(slot, "slot_valid", True),
+        )
     if payload or not bool(getattr(slot, "slot_valid", True)):
         payload["slot_valid"] = bool(getattr(slot, "slot_valid", True))
     return payload
@@ -157,7 +165,11 @@ def _slot_operation_payload(operation: Any) -> Mapping[str, Any]:
         "score": _sequence_value(operation.score),
         "action": _sequence_value(operation.action),
         "entity_type": operation.entity_type,
-        "target": _sequence_value(operation.target),
+        "target": _normalized_target(
+            operation.entity_type,
+            _sequence_value(operation.target),
+            _sequence_value(operation.slot_valid),
+        ),
         "slot_valid": _sequence_value(operation.slot_valid),
     }
 
@@ -166,3 +178,17 @@ def _sequence_value(value: Any) -> Any:
     if isinstance(value, list):
         return tuple(value)
     return value
+
+
+def _normalized_target(entity_type: str, target: Any, slot_valid: Any) -> Any:
+    try:
+        if isinstance(target, tuple) and isinstance(slot_valid, tuple):
+            return tuple(
+                normalize_entity_target(entity_type, item) if valid else item
+                for item, valid in zip(target, slot_valid, strict=True)
+            )
+        if slot_valid:
+            return normalize_entity_target(entity_type, target)
+    except ValueError:
+        return target
+    return target

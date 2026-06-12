@@ -44,6 +44,7 @@ def test_selection_set_hash_is_stable_for_equal_content() -> None:
         limit=5,
         record_count=2,
         record_ids=("r-2", "r-1"),
+        dataset_id="dataset-1",
         source_version="sigma-fixture-v1",
         created_at=created_at,
         expires_at=created_at + timedelta(days=1),
@@ -56,6 +57,7 @@ def test_selection_set_hash_is_stable_for_equal_content() -> None:
         limit=5,
         record_count=2,
         record_ids=("r-2", "r-1"),
+        dataset_id="dataset-2",
         source_version="sigma-fixture-v1",
         created_at=created_at + timedelta(hours=1),
         expires_at=created_at + timedelta(days=2),
@@ -84,6 +86,9 @@ def test_selection_set_rejects_blank_ids_and_past_expiry() -> None:
 
     with pytest.raises(ValidationError, match="source_version"):
         _selection_set(source_version="  ")
+
+    with pytest.raises(ValidationError, match="dataset_id"):
+        _selection_set(dataset_id="  ")
 
     with pytest.raises(ValidationError, match="expires_at"):
         _selection_set(expires_at=datetime(2026, 6, 11, 8, 59, tzinfo=UTC))
@@ -130,6 +135,7 @@ def _selection_set(
     record_count: int = 1,
     record_ids: tuple[str, ...] | None = ("r-1",),
     snapshot_ref: str | None = None,
+    dataset_id: str | None = None,
     source_version: str = "sigma-fixture-v1",
     created_at: datetime | None = None,
     expires_at: datetime | None = None,
@@ -144,6 +150,7 @@ def _selection_set(
         record_count=record_count,
         record_ids=record_ids,
         snapshot_ref=snapshot_ref,
+        dataset_id=dataset_id,
         source_version=source_version,
         created_at=created_at or datetime(2026, 6, 11, 9, 0, tzinfo=UTC),
         expires_at=expires_at,

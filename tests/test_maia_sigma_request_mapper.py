@@ -25,8 +25,12 @@ def test_request_mapper_projects_dataset_scope_page_defaults_and_supported_filte
             "kind": "all_of",
             "expressions": [
                 {"kind": "predicate", "name": "product_type_in", "params": {"values": ["dm0518"]}},
-                {"kind": "predicate", "name": "tested_at_between", "params": {"start": "2026-05-01", "end": "2026-05-31"}},
-                {"kind": "predicate", "name": "summary_result_in", "params": {"values": ["FAIL"]}},
+                {
+                    "kind": "predicate",
+                    "name": "tested_at_between",
+                    "params": {"start": "2026-05-01", "end": "2026-05-31"},
+                },
+                {"kind": "predicate", "name": "summary_result_in", "params": {"values": ["不合格"]}},
                 {"kind": "predicate", "name": "sensor_in", "params": {"values": ["Vib1"]}},
                 {"kind": "predicate", "name": "test_segment_in", "params": {"values": ["TS-01"]}},
                 {"kind": "predicate", "name": "indicator_in", "params": {"values": ["RMS"]}},
@@ -44,7 +48,7 @@ def test_request_mapper_projects_dataset_scope_page_defaults_and_supported_filte
         "type": "dm0518",
         "startTime": "2026-05-01",
         "endTime": "2026-05-31",
-        "sumList": "FAIL",
+        "sumList": "不合格",
         "sensorIdList": "Vib1",
         "testNameList": "TS-01",
         "indicatorList": "RMS",
@@ -61,7 +65,7 @@ def test_request_mapper_normalizes_boolean_and_text_qualifiers() -> None:
                 {"kind": "predicate", "name": "config_version_in", "params": {"values": ["A12"]}},
                 {"kind": "predicate", "name": "type_system_in", "params": {"values": ["SYS-01"]}},
                 {"kind": "predicate", "name": "serial_number_in", "params": {"values": ["SN1001"]}},
-                {"kind": "predicate", "name": "manual_tag_in", "params": {"values": ["寮傚搷"]}},
+                {"kind": "predicate", "name": "manual_tag_in", "params": {"values": ["复测"]}},
                 {"kind": "predicate", "name": "archive_status_in", "params": {"values": ["archived"]}},
                 {"kind": "predicate", "name": "data_kind_in", "params": {"values": ["raw"]}},
                 {"kind": "predicate", "name": "artifact_availability_in", "params": {"values": ["available"]}},
@@ -79,7 +83,7 @@ def test_request_mapper_normalizes_boolean_and_text_qualifiers() -> None:
         "versionList": "A12",
         "systemNoList": "SYS-01",
         "serialNumberList": "SN1001",
-        "manualTagging": "寮傚搷",
+        "manualTagging": "复测",
         "archive": "true",
         "hasOriginData": "true",
         "onlyRepeatSerial": "true",
@@ -120,18 +124,24 @@ def test_request_mapper_does_not_infer_unconfirmed_negative_semantics() -> None:
         )
 
 
-def test_request_mapper_requires_dataset_scope_and_positive_pagination() -> None:
+def test_request_mapper_allows_missing_dataset_scope_and_requires_positive_pagination() -> None:
     mapper = LegacyRecordRequestMapper()
 
-    with pytest.raises(ValueError, match="dataset_id"):
-        mapper.map(
-            {"kind": "predicate", "name": "summary_result_in", "params": {"values": ["FAIL"]}},
-            workspace_context=WorkspaceContext(),
-        )
+    request = mapper.map(
+        {"kind": "predicate", "name": "summary_result_in", "params": {"values": ["不合格"]}},
+        workspace_context=WorkspaceContext(),
+    )
+
+    assert request.to_http_params() == {
+        "lang": "zh",
+        "page": 1,
+        "rows": 500,
+        "sumList": "不合格",
+    }
 
     with pytest.raises(ValueError, match="page"):
         mapper.map(
-            {"kind": "predicate", "name": "summary_result_in", "params": {"values": ["FAIL"]}},
+            {"kind": "predicate", "name": "summary_result_in", "params": {"values": ["不合格"]}},
             workspace_context=_workspace_context(),
             page=0,
         )
@@ -161,8 +171,8 @@ def test_request_mapper_rejects_branching_and_record_level_predicates_reserved_f
             {
                 "kind": "any_of",
                 "expressions": [
-                    {"kind": "predicate", "name": "summary_result_in", "params": {"values": ["FAIL"]}},
-                    {"kind": "predicate", "name": "summary_result_in", "params": {"values": ["PASS"]}},
+                    {"kind": "predicate", "name": "summary_result_in", "params": {"values": ["不合格"]}},
+                    {"kind": "predicate", "name": "summary_result_in", "params": {"values": ["合格"]}},
                 ],
             },
             workspace_context=_workspace_context(),
@@ -219,6 +229,26 @@ def test_request_mapper_maps_relative_time_range_shortcuts(
     assert week.to_http_params()["endTime"] == "2026-06-11"
     assert month.to_http_params()["startTime"] == "2026-05-13"
     assert month.to_http_params()["endTime"] == "2026-06-11"
+
+
+def test_request_mapper_supports_single_sided_tested_at_between() -> None:
+    mapper = LegacyRecordRequestMapper()
+
+    request = mapper.map(
+        {
+            "kind": "predicate",
+            "name": "tested_at_between",
+            "params": {"end": "2026-06-12 00:00:00"},
+        },
+        workspace_context=None,
+    )
+
+    assert request.to_http_params() == {
+        "lang": "zh",
+        "page": 1,
+        "rows": 500,
+        "endTime": "2026-06-12 00:00:00",
+    }
 
 
 def _workspace_context() -> WorkspaceContext:
