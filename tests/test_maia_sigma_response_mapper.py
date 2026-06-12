@@ -123,6 +123,35 @@ def test_response_mapper_accepts_current_sigma_report_field_aliases() -> None:
     )
 
 
+def test_response_mapper_accepts_rows_alias_from_sigma_envelope() -> None:
+    mapper = LegacyRecordResponseMapper()
+
+    page = mapper.map(
+        {
+            "code": 200,
+            "msg": "ok",
+            "data": {
+                "total": 1,
+                "rows": [
+                    {
+                        "id": 46139,
+                        "testTime": "2026-05-29 12:37:50",
+                        "type": "测试",
+                        "systemNo": "7s-SNF1001",
+                        "serialNo": "T2505290000035_250619192942",
+                        "sum": "不合格",
+                    }
+                ],
+            },
+        }
+    )
+
+    assert page.total == 1
+    assert page.record_ids == ("46139",)
+    assert page.records[0].product_type == "测试"
+    assert page.records[0].summary_result == "不合格"
+
+
 def test_response_mapper_surfaces_legacy_backend_failures() -> None:
     mapper = LegacyRecordResponseMapper()
 
@@ -155,3 +184,60 @@ def test_response_mapper_rejects_rows_without_record_identity() -> None:
                 },
             }
         )
+
+
+def test_response_mapper_splits_legacy_type_on_last_underscore_when_version_is_missing() -> None:
+    mapper = LegacyRecordResponseMapper()
+
+    page = mapper.map(
+        {
+            "code": 200,
+            "msg": "ok",
+            "data": {
+                "total": 1,
+                "rows": [
+                    {
+                        "id": 46140,
+                        "testTime": "2026-06-11 19:38:34",
+                        "type": "fixture_type_2",
+                        "systemNo": "7s-SNF1001",
+                        "serialNo": "SN-001",
+                        "sum": "FAIL",
+                    }
+                ],
+            },
+        }
+    )
+
+    record = page.records[0]
+    assert record.product_type == "fixture_type"
+    assert record.config_version == "2"
+
+
+def test_response_mapper_accepts_version_alias_from_current_sigma_rows() -> None:
+    mapper = LegacyRecordResponseMapper()
+
+    page = mapper.map(
+        {
+            "code": 200,
+            "msg": "ok",
+            "data": {
+                "total": 1,
+                "rows": [
+                    {
+                        "id": 46141,
+                        "testTime": "2026-06-11 19:38:34",
+                        "type": "fixture_type_2",
+                        "version": "2",
+                        "systemNo": "7s-SNF1001",
+                        "serialNo": "SN-002",
+                        "sum": "FAIL",
+                    }
+                ],
+            },
+        }
+    )
+
+    record = page.records[0]
+    assert record.product_type == "fixture_type"
+    assert record.config_version == "2"

@@ -12,11 +12,14 @@ from maia.integrations.sigma.records import ArtifactKind, TestRecordPage, TestRe
 
 _MISSING = object()
 _SUCCESS_CODES = frozenset({0, 200, "0", "200"})
+_DATA_TOTAL_ALIASES = ("total",)
+_DATA_ROWS_ALIASES = ("list", "rows")
 _ROW_ALIASES = {
     "record_id": ("recordId", "reportId", "id"),
     "tested_at": ("testedAt", "testTime", "createdAt"),
-    "product_type": ("productType", "type"),
-    "config_version": ("configVersion",),
+    "product_type": ("productType",),
+    "legacy_type": ("type",),
+    "config_version": ("configVersion", "version"),
     "system_no": ("systemNo", "system"),
     "serial_number": ("serialNumber", "serialNo"),
     "summary_result": ("summaryResult", "sum"),
@@ -54,19 +57,26 @@ class LegacyRecordResponseMapper:
             raise ValueError(f"legacy record query failed with code {code}: {msg or 'unknown error'}")
 
         data = _mapping(_required_value(body, "data", "payload.data"), "payload.data")
-        rows = _row_list(_required_value(data, "list", "payload.data.list"), "payload.data.list")
+        rows = _row_list(
+            _required_alias_value(data, _DATA_ROWS_ALIASES, "payload.data.list"),
+            "payload.data.list",
+        )
         return TestRecordPage(
-            total=_int_value(_required_value(data, "total", "payload.data.total"), "payload.data.total"),
+            total=_int_value(
+                _required_alias_value(data, _DATA_TOTAL_ALIASES, "payload.data.total"),
+                "payload.data.total",
+            ),
             records=tuple(self._map_row(row, index) for index, row in enumerate(rows)),
         )
 
     def _map_row(self, row: Mapping[str, object], index: int) -> TestRecordSummary:
+        product_type, config_version = _product_identity(row)
         try:
             return TestRecordSummary(
                 record_id=_required_text(_lookup(row, _ROW_ALIASES["record_id"]), "record id"),
                 tested_at=_optional_datetime(_lookup(row, _ROW_ALIASES["tested_at"])),
-                product_type=_optional_text(_lookup(row, _ROW_ALIASES["product_type"])),
-                config_version=_optional_text(_lookup(row, _ROW_ALIASES["config_version"])),
+                product_type=product_type,
+                config_version=config_version,
                 system_no=_optional_text(_lookup(row, _ROW_ALIASES["system_no"])),
                 serial_number=_optional_text(_lookup(row, _ROW_ALIASES["serial_number"])),
                 summary_result=_optional_text(_lookup(row, _ROW_ALIASES["summary_result"])),
@@ -79,6 +89,31 @@ class LegacyRecordResponseMapper:
             raise ValueError(f"invalid legacy record row at index {index}: {exc}") from exc
 
 
+def _product_identity(row: Mapping[str, object]) -> tuple[str | None, str | None]:
+    product_type = _optional_text(_lookup(row, _ROW_ALIASES["product_type"]))
+    config_version = _optional_text(_lookup(row, _ROW_ALIASES["config_version"]))
+    if product_type is not None:
+        return product_type, config_version
+
+    legacy_type = _optional_text(_lookup(row, _ROW_ALIASES["legacy_type"]))
+    if legacy_type is None:
+        return None, config_version
+
+    split_product_type, split_version = _split_product_type_and_version(legacy_type)
+    return split_product_type, config_version or split_version
+
+
+def _split_product_type_and_version(value: str) -> tuple[str, str | None]:
+    product_type, separator, version = value.rpartition("_")
+    if not separator:
+        return value, None
+    normalized_product_type = product_type.strip()
+    normalized_version = version.strip()
+    if not normalized_product_type or not normalized_version:
+        return value, None
+    return normalized_product_type, normalized_version
+
+
 def _mapping(value: Any, path: str) -> Mapping[str, object]:
     if not isinstance(value, Mapping):
         raise ValueError(f"{path} must be an object")
@@ -89,6 +124,17 @@ def _required_value(source: Mapping[str, object], key: str, path: str) -> object
     if key not in source:
         raise ValueError(f"{path} is required")
     return source[key]
+
+
+def _required_alias_value(
+    source: Mapping[str, object],
+    aliases: tuple[str, ...],
+    path: str,
+) -> object:
+    value = _lookup(source, aliases)
+    if value is _MISSING:
+        raise ValueError(f"{path} is required")
+    return value
 
 
 def _row_list(value: object, path: str) -> tuple[Mapping[str, object], ...]:

@@ -7,9 +7,11 @@ import json
 import urllib.error
 import urllib.request
 from collections.abc import Callable, Mapping
+from datetime import datetime
 from typing import Any, ClassVar, TypeAlias
 
 from maia.api import WorkspaceContext
+from maia.integrations.sigma.records import TestRecordSummary
 from maia.integrations.sigma.token_provider import SigmaTokenProvider
 from maia.selection.service import SelectionSetMaterializer
 from maia.selection.sets import SelectionSet
@@ -22,6 +24,7 @@ DatasetMaterializerTransport: TypeAlias = Callable[
     [str, dict[str, str], bytes | None, float],
     tuple[int, str],
 ]
+_TIME_FORMAT = "%Y-%m-%d %H:%M:%S"
 
 
 class DatasetMaterializerError(RuntimeError):
@@ -56,24 +59,26 @@ class SigmaSelectionSetMaterializer(SelectionSetMaterializer):
         self,
         selection_set: SelectionSet,
         *,
+        records: tuple[object, ...] = (),
         workspace_context: WorkspaceContext | None,
     ) -> str | None:
         if not selection_set.record_ids:
             return None
         lang = "zh" if workspace_context is None else workspace_context.lang
+        dataset_name = _dataset_name(selection_set)
         dataset_id = _extract_dataset_id(
             await self._request(
                 self._save_dataset_url,
-                {"lang": lang, "name": f"maia-{selection_set.selection_set_id}"},
+                {"lang": lang, "name": dataset_name},
             )
         )
         await self._request(
             self._replace_records_url,
-            {
-                "lang": lang,
-                "dataGroupId": dataset_id,
-                "recordIdList": list(selection_set.record_ids),
-            },
+            _replace_records_body(
+                dataset_id=dataset_id,
+                dataset_name=dataset_name,
+                records=records,
+            ),
         )
         return dataset_id
 
@@ -105,6 +110,51 @@ def _extract_dataset_id(payload: Mapping[str, object]) -> str:
     if data not in (None, ""):
         return str(data)
     raise DatasetMaterializerError("SigMA dataset materializer response did not include dataset id")
+
+
+def _dataset_name(selection_set: SelectionSet) -> str:
+    return f"maia-{selection_set.selection_hash[:12]}"
+
+
+def _replace_records_body(
+    *,
+    dataset_id: str,
+    dataset_name: str,
+    records: tuple[object, ...],
+) -> dict[str, object]:
+    result_list = [
+        _result_item(record)
+        for record in records
+        if isinstance(record, TestRecordSummary)
+    ]
+    return {
+        "id": _coerce_numeric_text(dataset_id),
+        "info": None,
+        "name": dataset_name,
+        "resultList": result_list,
+        "copyStatus": False,
+    }
+
+
+def _result_item(record: TestRecordSummary) -> dict[str, object]:
+    return {
+        "colorId": None,
+        "resultId": _coerce_numeric_text(record.record_id),
+        "serialNo": record.serial_number,
+        "testTime": _format_time(record.tested_at),
+        "version": record.config_version,
+        "systemNo": record.system_no,
+        "type": record.product_type,
+    }
+
+
+def _format_time(value: datetime | None) -> str | None:
+    return None if value is None else value.strftime(_TIME_FORMAT)
+
+
+def _coerce_numeric_text(value: str) -> int | str:
+    text = value.strip()
+    return int(text) if text.isdigit() else text
 
 
 def _path(value: str) -> str:

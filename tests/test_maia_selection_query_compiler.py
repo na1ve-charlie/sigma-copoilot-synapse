@@ -94,6 +94,39 @@ def test_query_compiler_intersects_positive_branch_and_excludes_not_branch() -> 
     assert result.record_count == 2
 
 
+def test_query_compiler_merges_conjunctive_pushdown_predicates_into_one_request() -> None:
+    expression = {
+        "kind": "all_of",
+        "expressions": [
+            {"kind": "predicate", "name": "product_type_in", "params": {"values": ["A"]}},
+            {"kind": "predicate", "name": "config_version_in", "params": {"values": ["1"]}},
+            {
+                "kind": "predicate",
+                "name": "tested_at_between",
+                "params": {"start": "2026-06-01 00:00:00", "end": "2026-06-12 00:00:00"},
+            },
+        ],
+    }
+    client = FakeRecordClient(
+        {
+            _key(expression): [
+                _page(["r-1", "r-2"], total=2),
+            ],
+        }
+    )
+
+    result = asyncio.run(
+        SelectionQueryCompiler(client, page_size=5).compile(
+            {"expression": expression},
+            workspace_context=_workspace_context(),
+        )
+    )
+
+    assert result.record_ids == ("r-1", "r-2")
+    assert result.record_count == 2
+    assert tuple(client.calls) == (("all_of", 1, 5),)
+
+
 def test_query_compiler_supports_root_not_against_dataset_scope() -> None:
     client = FakeRecordClient(
         {
@@ -210,7 +243,9 @@ def _call_label(key: str) -> str:
     if key == "<all>":
         return key
     payload = json.loads(key)
-    return f"{payload['kind']}:{payload['name']}"
+    if payload["kind"] == "predicate":
+        return f"{payload['kind']}:{payload['name']}"
+    return payload["kind"]
 
 
 def _workspace_context() -> WorkspaceContext:

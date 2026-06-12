@@ -45,6 +45,9 @@ def test_request_mapper_projects_dataset_scope_page_defaults_and_supported_filte
         "lang": "zh",
         "page": 1,
         "rows": 500,
+        "archive": "false",
+        "keepLast": "false",
+        "onlyRepeatSerial": "false",
         "type": "dm0518",
         "startTime": "2026-05-01",
         "endTime": "2026-05-31",
@@ -80,13 +83,14 @@ def test_request_mapper_normalizes_boolean_and_text_qualifiers() -> None:
         "lang": "zh",
         "page": 2,
         "rows": 100,
+        "archive": "true",
+        "keepLast": "false",
+        "onlyRepeatSerial": "true",
         "versionList": "A12",
         "systemNoList": "SYS-01",
         "serialNumberList": "SN1001",
         "manualTagging": "复测",
-        "archive": "true",
         "hasOriginData": "true",
-        "onlyRepeatSerial": "true",
     }
 
 
@@ -136,6 +140,9 @@ def test_request_mapper_allows_missing_dataset_scope_and_requires_positive_pagin
         "lang": "zh",
         "page": 1,
         "rows": 500,
+        "archive": "false",
+        "keepLast": "false",
+        "onlyRepeatSerial": "false",
         "sumList": "不合格",
     }
 
@@ -160,6 +167,9 @@ def test_request_mapper_allows_dataset_scoped_query_without_extra_predicates() -
         "lang": "zh",
         "page": 3,
         "rows": 10,
+        "archive": "false",
+        "keepLast": "false",
+        "onlyRepeatSerial": "false",
     }
 
 
@@ -225,6 +235,9 @@ def test_request_mapper_maps_relative_time_range_shortcuts(
         workspace_context=_workspace_context(),
     )
 
+    assert week.to_http_params()["archive"] == "false"
+    assert week.to_http_params()["keepLast"] == "false"
+    assert week.to_http_params()["onlyRepeatSerial"] == "false"
     assert week.to_http_params()["startTime"] == "2026-06-05"
     assert week.to_http_params()["endTime"] == "2026-06-11"
     assert month.to_http_params()["startTime"] == "2026-05-13"
@@ -247,6 +260,9 @@ def test_request_mapper_supports_single_sided_tested_at_between() -> None:
         "lang": "zh",
         "page": 1,
         "rows": 500,
+        "archive": "false",
+        "keepLast": "false",
+        "onlyRepeatSerial": "false",
         "endTime": "2026-06-12 00:00:00",
     }
 

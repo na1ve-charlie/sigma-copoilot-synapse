@@ -89,6 +89,9 @@ def test_test_record_client_calls_legacy_endpoint_with_mapped_query_params() -> 
         "lang": "zh",
         "page": 3,
         "rows": 50,
+        "archive": "false",
+        "keepLast": "false",
+        "onlyRepeatSerial": "false",
         "type": "dm0518",
         "sumList": "FAIL",
     }

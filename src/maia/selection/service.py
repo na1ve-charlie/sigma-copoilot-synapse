@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
-from typing import Protocol
+from typing import Any, Protocol
 from uuid import uuid4
 
 from maia.api import WorkspaceContext
@@ -18,6 +18,7 @@ class SelectionSetMaterializer(Protocol):
         self,
         selection_set: SelectionSet,
         *,
+        records: tuple[Any, ...] = (),
         workspace_context: WorkspaceContext | None,
     ) -> str | None: ...
 
@@ -77,6 +78,7 @@ class SelectionSetService:
         if self._materializer is not None:
             dataset_id = await self._materializer.materialize(
                 selection_set,
+                records=compiled.records,
                 workspace_context=workspace_context,
             )
             if dataset_id is not None:

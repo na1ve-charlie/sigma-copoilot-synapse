@@ -63,17 +63,18 @@ class LegacyRecordRequestParams(BaseModel):
     lang: str = "zh"
     page: int = 1
     rows: int = 500
+    archive: bool = False
+    keep_last: bool = Field(default=False, serialization_alias="keepLast")
+    only_repeat_serial: bool = Field(default=False, serialization_alias="onlyRepeatSerial")
     product_type: str | None = Field(default=None, serialization_alias="type")
     config_version_list: tuple[str, ...] = Field(default=(), serialization_alias="versionList")
     system_no_list: tuple[str, ...] = Field(default=(), serialization_alias="systemNoList")
     serial_number_list: tuple[str, ...] = Field(default=(), serialization_alias="serialNumberList")
     summary_result_list: tuple[str, ...] = Field(default=(), serialization_alias="sumList")
     manual_tagging: str | None = Field(default=None, serialization_alias="manualTagging")
-    archive: bool | None = None
     sensor_id_list: tuple[str, ...] = Field(default=(), serialization_alias="sensorIdList")
     test_name_list: tuple[str, ...] = Field(default=(), serialization_alias="testNameList")
     indicator_list: tuple[str, ...] = Field(default=(), serialization_alias="indicatorList")
-    only_repeat_serial: bool | None = Field(default=None, serialization_alias="onlyRepeatSerial")
     has_pdf_report: bool | None = Field(default=None, serialization_alias="hasPdfReport")
     has_origin_data: bool | None = Field(default=None, serialization_alias="hasOriginData")
     has_result_data: bool | None = Field(default=None, serialization_alias="hasResultData")

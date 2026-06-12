@@ -77,12 +77,19 @@ class SelectionQueryCompiler:
         positive = [child for child in parsed.expressions if not isinstance(child, Not)]
         negative = [child.expression for child in parsed.expressions if isinstance(child, Not)]
         if positive:
-            current = await self._evaluate(positive[0], workspace_context=workspace_context)
-            for child in positive[1:]:
-                current = _intersect_records(
-                    current,
-                    await self._evaluate(child, workspace_context=workspace_context),
+            merged_positive = _merged_pushdown_expression(positive)
+            if merged_positive is not None:
+                current = await self._fetch_pushdown_records(
+                    merged_positive,
+                    workspace_context=workspace_context,
                 )
+            else:
+                current = await self._evaluate(positive[0], workspace_context=workspace_context)
+                for child in positive[1:]:
+                    current = _intersect_records(
+                        current,
+                        await self._evaluate(child, workspace_context=workspace_context),
+                    )
         else:
             current = await self._fetch_dataset_scope(workspace_context=workspace_context)
         for child in negative:
@@ -138,6 +145,24 @@ class SelectionQueryCompiler:
     @staticmethod
     def _describe(expression: FilterExpression) -> str:
         return expression.name if isinstance(expression, Predicate) else expression.kind
+
+
+def _merged_pushdown_expression(
+    expressions: list[FilterExpression],
+) -> FilterExpression | None:
+    if not expressions or not all(_is_pushdown_compatible(expression) for expression in expressions):
+        return None
+    if len(expressions) == 1:
+        return expressions[0]
+    return AllOf(expressions=tuple(expressions))
+
+
+def _is_pushdown_compatible(expression: FilterExpression) -> bool:
+    if isinstance(expression, Predicate):
+        return True
+    if isinstance(expression, AllOf):
+        return all(_is_pushdown_compatible(child) for child in expression.expressions)
+    return False
 
 
 def _union_records(

@@ -294,6 +294,12 @@ class _RecordClient:
         del workspace_context, page, rows
         key = "<all>" if expression is None else _key(expression)
         if key not in self._pages:
+            payload = json.loads(key)
+            if payload.get("kind") == "all_of":
+                return _intersect_page(
+                    self._pages[_key(item)]
+                    for item in payload["expressions"]
+                )
             raise ValueError(f"unsupported query branch: {key}")
         return self._pages[key]
 
@@ -311,8 +317,8 @@ class _Materializer:
     def __init__(self) -> None:
         self._counter = 0
 
-    async def materialize(self, selection_set, *, workspace_context) -> str:
-        del selection_set, workspace_context
+    async def materialize(self, selection_set, *, records=(), workspace_context) -> str:
+        del selection_set, records, workspace_context
         self._counter += 1
         return f"dataset-{self._counter}"
 
@@ -371,6 +377,15 @@ def _request(
 
 def _page(record_ids: list[str]) -> TestRecordPage:
     return TestRecordPage(total=len(record_ids), records=tuple(_record(record_id) for record_id in record_ids))
+
+
+def _intersect_page(pages) -> TestRecordPage:
+    ordered_pages = tuple(pages)
+    record_ids = set(ordered_pages[0].record_ids)
+    for page in ordered_pages[1:]:
+        record_ids &= set(page.record_ids)
+    ordered_ids = [record_id for record_id in ordered_pages[0].record_ids if record_id in record_ids]
+    return _page(ordered_ids)
 
 
 def _record(record_id: str) -> TestRecordSummary:
