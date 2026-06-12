@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import json
+from datetime import date
 from pathlib import Path
 
 import pytest
 
 from maia.api import WorkspaceContext
+from maia.integrations.sigma import request_mapper as request_mapper_module
 from maia.integrations.sigma.request_mapper import (
     LegacyRecordRequestMapper,
     LegacyRecordRequestParams,
@@ -39,13 +41,13 @@ def test_request_mapper_projects_dataset_scope_page_defaults_and_supported_filte
         "lang": "zh",
         "page": 1,
         "rows": 500,
-        "productTypeList": ["dm0518"],
-        "testedAtStart": "2026-05-01",
-        "testedAtEnd": "2026-05-31",
-        "summaryResultList": ["FAIL"],
-        "sensorList": ["Vib1"],
-        "testNameList": ["TS-01"],
-        "indicatorNameList": ["RMS"],
+        "type": "dm0518",
+        "startTime": "2026-05-01",
+        "endTime": "2026-05-31",
+        "sumList": "FAIL",
+        "sensorIdList": "Vib1",
+        "testNameList": "TS-01",
+        "indicatorList": "RMS",
     }
 
 
@@ -59,7 +61,7 @@ def test_request_mapper_normalizes_boolean_and_text_qualifiers() -> None:
                 {"kind": "predicate", "name": "config_version_in", "params": {"values": ["A12"]}},
                 {"kind": "predicate", "name": "type_system_in", "params": {"values": ["SYS-01"]}},
                 {"kind": "predicate", "name": "serial_number_in", "params": {"values": ["SN1001"]}},
-                {"kind": "predicate", "name": "manual_tag_in", "params": {"values": ["异响"]}},
+                {"kind": "predicate", "name": "manual_tag_in", "params": {"values": ["寮傚搷"]}},
                 {"kind": "predicate", "name": "archive_status_in", "params": {"values": ["archived"]}},
                 {"kind": "predicate", "name": "data_kind_in", "params": {"values": ["raw"]}},
                 {"kind": "predicate", "name": "artifact_availability_in", "params": {"values": ["available"]}},
@@ -74,15 +76,48 @@ def test_request_mapper_normalizes_boolean_and_text_qualifiers() -> None:
         "lang": "zh",
         "page": 2,
         "rows": 100,
-        "configVersionList": ["A12"],
-        "systemNoList": ["SYS-01"],
-        "serialNumberList": ["SN1001"],
-        "manualTagList": ["异响"],
-        "archiveStatusList": ["archived"],
-        "dataKindList": ["raw"],
-        "artifactAvailable": True,
-        "repeatSerial": True,
+        "versionList": "A12",
+        "systemNoList": "SYS-01",
+        "serialNumberList": "SN1001",
+        "manualTagging": "寮傚搷",
+        "archive": "true",
+        "hasOriginData": "true",
+        "onlyRepeatSerial": "true",
     }
+
+
+def test_request_mapper_does_not_infer_unconfirmed_negative_semantics() -> None:
+    mapper = LegacyRecordRequestMapper()
+
+    with pytest.raises(ValueError, match="archive_status_in"):
+        mapper.map(
+            {
+                "kind": "predicate",
+                "name": "archive_status_in",
+                "params": {"values": ["active"]},
+            },
+            workspace_context=_workspace_context(),
+        )
+
+    with pytest.raises(ValueError, match="artifact_availability_in"):
+        mapper.map(
+            {
+                "kind": "all_of",
+                "expressions": [
+                    {
+                        "kind": "predicate",
+                        "name": "data_kind_in",
+                        "params": {"values": ["raw"]},
+                    },
+                    {
+                        "kind": "predicate",
+                        "name": "artifact_availability_in",
+                        "params": {"values": ["unavailable"]},
+                    },
+                ],
+            },
+            workspace_context=_workspace_context(),
+        )
 
 
 def test_request_mapper_requires_dataset_scope_and_positive_pagination() -> None:
@@ -156,15 +191,34 @@ def test_request_mapper_rejects_branching_and_record_level_predicates_reserved_f
             workspace_context=_workspace_context(),
         )
 
-    with pytest.raises(ValueError, match="time_range_in"):
-        mapper.map(
-            {
-                "kind": "predicate",
-                "name": "time_range_in",
-                "params": {"values": ["最近一周"]},
-            },
-            workspace_context=_workspace_context(),
-        )
+
+def test_request_mapper_maps_relative_time_range_shortcuts(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    mapper = LegacyRecordRequestMapper()
+    monkeypatch.setattr(request_mapper_module, "_today", lambda: date(2026, 6, 11))
+
+    week = mapper.map(
+        {
+            "kind": "predicate",
+            "name": "time_range_in",
+            "params": {"values": ["last_week"]},
+        },
+        workspace_context=_workspace_context(),
+    )
+    month = mapper.map(
+        {
+            "kind": "predicate",
+            "name": "time_range_in",
+            "params": {"values": ["last_month"]},
+        },
+        workspace_context=_workspace_context(),
+    )
+
+    assert week.to_http_params()["startTime"] == "2026-06-05"
+    assert week.to_http_params()["endTime"] == "2026-06-11"
+    assert month.to_http_params()["startTime"] == "2026-05-13"
+    assert month.to_http_params()["endTime"] == "2026-06-11"
 
 
 def _workspace_context() -> WorkspaceContext:

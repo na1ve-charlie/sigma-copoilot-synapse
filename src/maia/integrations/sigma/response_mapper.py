@@ -15,21 +15,21 @@ _SUCCESS_CODES = frozenset({0, 200, "0", "200"})
 _ROW_ALIASES = {
     "record_id": ("recordId", "reportId", "id"),
     "tested_at": ("testedAt", "testTime", "createdAt"),
-    "product_type": ("productType",),
+    "product_type": ("productType", "type"),
     "config_version": ("configVersion",),
-    "system_no": ("systemNo",),
-    "serial_number": ("serialNumber",),
-    "summary_result": ("summaryResult",),
-    "manual_tags": ("manualTagList", "manualTags"),
+    "system_no": ("systemNo", "system"),
+    "serial_number": ("serialNumber", "serialNo"),
+    "summary_result": ("summaryResult", "sum"),
+    "manual_tags": ("manualTagList", "manualTags", "manualTagging"),
     "archive_status": ("archiveStatus",),
     "repeat_serial": ("repeatSerial",),
 }
 _ARTIFACT_LIST_ALIASES = ("availableArtifacts", "artifactKinds", "dataKinds")
 _ARTIFACT_FLAG_ALIASES: dict[ArtifactKind, tuple[str, ...]] = {
-    "raw_data": ("rawDataAvailable", "rawData"),
+    "raw_data": ("rawDataAvailable", "rawData", "originData"),
     "result_data": ("resultDataAvailable", "resultData"),
     "report": ("reportAvailable", "report"),
-    "audio": ("audioAvailable", "audio"),
+    "audio": ("audioAvailable", "audio", "ngaudio"),
     "colormap": ("colormapAvailable", "colorMapAvailable", "colormap", "colorMap"),
 }
 _ARTIFACT_NAME_ALIASES: dict[str, ArtifactKind] = {

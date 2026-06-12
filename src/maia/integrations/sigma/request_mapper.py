@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import date, timedelta
 from typing import Any, ClassVar
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -18,21 +19,39 @@ from maia.selection.expression import (
 
 
 _LIST_FIELDS = {
-    "archive_status_in": "archive_status_list",
     "config_version_in": "config_version_list",
-    "data_kind_in": "data_kind_list",
-    "indicator_in": "indicator_name_list",
-    "manual_tag_in": "manual_tag_list",
-    "product_type_in": "product_type_list",
-    "sensor_in": "sensor_list",
+    "indicator_in": "indicator_list",
+    "sensor_in": "sensor_id_list",
     "serial_number_in": "serial_number_list",
     "summary_result_in": "summary_result_list",
     "test_segment_in": "test_name_list",
     "type_system_in": "system_no_list",
 }
+_TEXT_FIELDS = {
+    "manual_tag_in": "manual_tagging",
+    "product_type_in": "product_type",
+}
 _BOOL_FIELDS = {
-    "artifact_availability_in": ("artifact_available", {"available": True, "unavailable": False, "missing": False}),
-    "repeat_serial_in": ("repeat_serial", {"repeated": True, "non_repeated": False, "unique": False}),
+    "archive_status_in": ("archive", {"archived": True}),
+    "repeat_serial_in": (
+        "only_repeat_serial",
+        {"repeated": True, "non_repeated": False, "unique": False},
+    ),
+}
+_ARTIFACT_FIELDS = {
+    "colormap": "has_color_map",
+    "color_map": "has_color_map",
+    "pdf": "has_pdf_report",
+    "raw": "has_origin_data",
+    "raw_data": "has_origin_data",
+    "report": "has_pdf_report",
+    "result": "has_result_data",
+    "result_data": "has_result_data",
+}
+_TIME_RANGE_DAYS = {
+    "today": 1,
+    "last_month": 30,
+    "last_week": 7,
 }
 
 
@@ -44,23 +63,25 @@ class LegacyRecordRequestParams(BaseModel):
     lang: str = "zh"
     page: int = 1
     rows: int = 500
-    product_type_list: tuple[str, ...] = Field(default=(), serialization_alias="productTypeList")
-    config_version_list: tuple[str, ...] = Field(default=(), serialization_alias="configVersionList")
+    product_type: str | None = Field(default=None, serialization_alias="type")
+    config_version_list: tuple[str, ...] = Field(default=(), serialization_alias="versionList")
     system_no_list: tuple[str, ...] = Field(default=(), serialization_alias="systemNoList")
     serial_number_list: tuple[str, ...] = Field(default=(), serialization_alias="serialNumberList")
-    summary_result_list: tuple[str, ...] = Field(default=(), serialization_alias="summaryResultList")
-    manual_tag_list: tuple[str, ...] = Field(default=(), serialization_alias="manualTagList")
-    archive_status_list: tuple[str, ...] = Field(default=(), serialization_alias="archiveStatusList")
-    data_kind_list: tuple[str, ...] = Field(default=(), serialization_alias="dataKindList")
-    sensor_list: tuple[str, ...] = Field(default=(), serialization_alias="sensorList")
+    summary_result_list: tuple[str, ...] = Field(default=(), serialization_alias="sumList")
+    manual_tagging: str | None = Field(default=None, serialization_alias="manualTagging")
+    archive: bool | None = None
+    sensor_id_list: tuple[str, ...] = Field(default=(), serialization_alias="sensorIdList")
     test_name_list: tuple[str, ...] = Field(default=(), serialization_alias="testNameList")
-    indicator_name_list: tuple[str, ...] = Field(default=(), serialization_alias="indicatorNameList")
-    artifact_available: bool | None = Field(default=None, serialization_alias="artifactAvailable")
-    repeat_serial: bool | None = Field(default=None, serialization_alias="repeatSerial")
-    tested_at_start: str | None = Field(default=None, serialization_alias="testedAtStart")
-    tested_at_end: str | None = Field(default=None, serialization_alias="testedAtEnd")
+    indicator_list: tuple[str, ...] = Field(default=(), serialization_alias="indicatorList")
+    only_repeat_serial: bool | None = Field(default=None, serialization_alias="onlyRepeatSerial")
+    has_pdf_report: bool | None = Field(default=None, serialization_alias="hasPdfReport")
+    has_origin_data: bool | None = Field(default=None, serialization_alias="hasOriginData")
+    has_result_data: bool | None = Field(default=None, serialization_alias="hasResultData")
+    has_color_map: bool | None = Field(default=None, serialization_alias="hasColorMap")
+    start_time: str | None = Field(default=None, serialization_alias="startTime")
+    end_time: str | None = Field(default=None, serialization_alias="endTime")
 
-    @field_validator("data_group_id", "lang", "tested_at_start", "tested_at_end")
+    @field_validator("data_group_id", "lang", "product_type", "manual_tagging", "start_time", "end_time")
     @classmethod
     def _require_text(cls, value: str | None, info) -> str | None:
         if value is not None and not value.strip():
@@ -87,7 +108,17 @@ class LegacyRecordRequestParams(BaseModel):
 
     def to_http_params(self) -> dict[str, object]:
         payload = self.model_dump(mode="json", by_alias=True, exclude_none=True)
-        return {key: value for key, value in payload.items() if value != []}
+        params: dict[str, object] = {}
+        for key, value in payload.items():
+            if value == []:
+                continue
+            if isinstance(value, list):
+                params[key] = ",".join(value)
+            elif isinstance(value, bool):
+                params[key] = str(value).lower()
+            else:
+                params[key] = value
+        return params
 
 
 class LegacyRecordRequestMapper:
@@ -123,7 +154,11 @@ def _conjunctive_predicates(expression: FilterExpression) -> tuple[Predicate, ..
     if isinstance(expression, Predicate):
         return (expression,)
     if isinstance(expression, AllOf):
-        return tuple(predicate for child in expression.expressions for predicate in _conjunctive_predicates(child))
+        return tuple(
+            predicate
+            for child in expression.expressions
+            for predicate in _conjunctive_predicates(child)
+        )
     if isinstance(expression, AnyOf):
         raise ValueError("AnyOf legacy query branching is handled in G15")
     raise ValueError("Not legacy query branching is handled in G15")
@@ -134,18 +169,32 @@ def _apply_predicate(target: dict[str, Any], predicate: Predicate) -> None:
         field_name = _LIST_FIELDS[predicate.name]
         target[field_name] = _merge_texts(target.get(field_name, ()), _values(predicate))
         return
+    if predicate.name in _TEXT_FIELDS:
+        _set_once(target, _TEXT_FIELDS[predicate.name], _single_value(predicate))
+        return
     if predicate.name == "tested_at_between":
-        start = _required_param(predicate, "start")
-        end = _required_param(predicate, "end")
-        _set_once(target, "tested_at_start", start)
-        _set_once(target, "tested_at_end", end)
+        _set_once(target, "start_time", _required_param(predicate, "start"))
+        _set_once(target, "end_time", _required_param(predicate, "end"))
+        return
+    if predicate.name == "time_range_in":
+        start, end = _time_range_bounds(predicate)
+        _set_once(target, "start_time", start)
+        _set_once(target, "end_time", end)
+        return
+    if predicate.name == "data_kind_in":
+        for value in _values(predicate):
+            _set_once(target, _artifact_field(value), True)
+        return
+    if predicate.name == "artifact_availability_in":
+        if _single_value(predicate) != "available":
+            raise ValueError(f"unsupported values for {predicate.name}: {_values(predicate)}")
         return
     if predicate.name in _BOOL_FIELDS:
         field_name, mapping = _BOOL_FIELDS[predicate.name]
-        values = _values(predicate)
-        if len(values) != 1 or values[0] not in mapping:
-            raise ValueError(f"unsupported values for {predicate.name}: {values}")
-        _set_once(target, field_name, mapping[values[0]])
+        value = _single_value(predicate)
+        if value not in mapping:
+            raise ValueError(f"unsupported values for {predicate.name}: {(value,)}")
+        _set_once(target, field_name, mapping[value])
         return
     raise ValueError(f"unsupported legacy record predicate: {predicate.name}")
 
@@ -158,6 +207,13 @@ def _values(predicate: Predicate) -> tuple[str, ...]:
     return tuple(str(value) for value in values)
 
 
+def _single_value(predicate: Predicate) -> str:
+    values = _values(predicate)
+    if len(values) != 1:
+        raise ValueError(f"unsupported values for {predicate.name}: {values}")
+    return values[0]
+
+
 def _required_param(predicate: Predicate, key: str) -> str:
     value = predicate.params.get(key)
     if value is None or not str(value).strip():
@@ -167,6 +223,27 @@ def _required_param(predicate: Predicate, key: str) -> str:
 
 def _merge_texts(current: tuple[str, ...], incoming: tuple[str, ...]) -> tuple[str, ...]:
     return tuple(dict.fromkeys((*current, *incoming)))
+
+
+def _artifact_field(value: str) -> str:
+    key = value.strip().lower()
+    if key not in _ARTIFACT_FIELDS:
+        raise ValueError(f"unsupported values for data_kind_in: {(value,)}")
+    return _ARTIFACT_FIELDS[key]
+
+
+def _time_range_bounds(predicate: Predicate) -> tuple[str, str]:
+    token = _single_value(predicate).strip().lower()
+    if token not in _TIME_RANGE_DAYS:
+        raise ValueError(f"unsupported values for {predicate.name}: {(token,)}")
+
+    end = _today()
+    start = end - timedelta(days=_TIME_RANGE_DAYS[token] - 1)
+    return start.isoformat(), end.isoformat()
+
+
+def _today() -> date:
+    return date.today()
 
 
 def _set_once(target: dict[str, Any], key: str, value: Any) -> None:

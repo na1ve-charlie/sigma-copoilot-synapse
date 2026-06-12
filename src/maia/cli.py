@@ -4,18 +4,33 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import json
+import os
 import sys
 from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 from maia import RecognitionReport, build_maia_recognizer_from_config
+from maia.api import TurnRequest, WorkspaceContext
+from maia.integrations.sigma import TestRecordClient, TestRecordSummary
 from maia.recognition.resolver_loader import load_cli_resolver
+from maia.runtime import ConversationStateRepository, create_maia_runtime
+from maia.selection import InMemorySelectionSetRepository, SelectionSet
+from maia.selection.compiler import SelectionQueryCompiler
 
 
 INTERACTIVE_SEPARATOR = "-" * 40
 _DECISION_LABEL_WIDTH = 23
 _ACTION_NAME_WIDTH = 46
+
+
+@dataclass(frozen=True)
+class QueryPreview:
+    report: RecognitionReport
+    selection_set: SelectionSet | None
+    records: tuple[TestRecordSummary, ...] = ()
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -65,12 +80,28 @@ def _build_parser() -> argparse.ArgumentParser:
     recognize.add_argument("--compact", action="store_true")
     recognize.add_argument("--diagnostics", action="store_true")
     recognize.add_argument("--resolver-values", type=Path)
+    recognize.add_argument("--workspace-context", type=Path)
+    recognize.add_argument("--show-selection-set", action="store_true")
+    recognize.add_argument("--load-records", action="store_true")
     return parser
 
 
 def _run_recognize(args: argparse.Namespace) -> int:
     if args.compact and not args.json:
         print("--compact requires --json", file=sys.stderr)
+        return 2
+    if args.load_records and args.message is None:
+        print("--load-records requires --message", file=sys.stderr)
+        return 2
+    if args.show_selection_set and args.message is None:
+        print("--show-selection-set requires --message", file=sys.stderr)
+        return 2
+    if (args.show_selection_set or args.load_records) and args.workspace_context is None:
+        flag = "--load-records" if args.load_records else "--show-selection-set"
+        print(f"{flag} requires --workspace-context", file=sys.stderr)
+        return 2
+    if args.json and (args.show_selection_set or args.load_records):
+        print("preview flags are text-mode only", file=sys.stderr)
         return 2
 
     try:
@@ -83,16 +114,18 @@ def _run_recognize(args: argparse.Namespace) -> int:
         print(f"invalid resolver values: {exc}", file=sys.stderr)
         return 2
 
-    recognizer = build_maia_recognizer_from_config()
     if args.message is not None:
         return _run_single(
-            recognizer,
             args.message,
             resolver=resolver,
             json_output=bool(args.json),
             compact=bool(args.compact),
             include_diagnostics=bool(args.diagnostics),
+            workspace_context_path=args.workspace_context,
+            show_selection_set=bool(args.show_selection_set),
+            load_records=bool(args.load_records),
         )
+    recognizer = build_maia_recognizer_from_config()
     return _run_interactive(
         recognizer,
         resolver=resolver,
@@ -103,28 +136,47 @@ def _run_recognize(args: argparse.Namespace) -> int:
 
 
 def _run_single(
-    recognizer: Any,
     message: str,
     *,
     resolver: Any | None,
     json_output: bool,
     compact: bool,
     include_diagnostics: bool,
+    workspace_context_path: Path | None,
+    show_selection_set: bool,
+    load_records: bool,
 ) -> int:
-    report = _recognize_message(
-        recognizer,
-        message,
-        resolver=resolver,
-        include_diagnostics=include_diagnostics,
-    )
-    if report is None:
-        return 1
+    preview: QueryPreview | None = None
+    if show_selection_set or load_records:
+        try:
+            preview = build_query_preview(
+                message=message,
+                workspace_context_path=workspace_context_path,
+                resolver=resolver,
+                load_records=load_records,
+            )
+        except Exception as exc:
+            print(f"preview failed: {exc}", file=sys.stderr)
+            return 1
+        report = preview.report
+    else:
+        report = _recognize_message(
+            build_maia_recognizer_from_config(),
+            message,
+            resolver=resolver,
+            include_diagnostics=include_diagnostics,
+        )
+        if report is None:
+            return 1
     _write_stdout(
         _render_output(
             report,
             json_output=json_output,
             compact=compact,
             include_diagnostics=include_diagnostics,
+            preview=preview,
+            show_selection_set=show_selection_set or load_records,
+            load_records=load_records,
         )
     )
     return 0
@@ -188,16 +240,85 @@ def _recognize_message(
         return None
 
 
+def build_query_preview(
+    *,
+    message: str,
+    workspace_context_path: Path | None,
+    resolver: Any | None,
+    load_records: bool,
+) -> QueryPreview:
+    if workspace_context_path is None:
+        raise ValueError("workspace context path is required")
+    return asyncio.run(_build_query_preview(
+        message=message,
+        workspace_context=WorkspaceContext.model_validate(
+            json.loads(workspace_context_path.read_text(encoding="utf-8"))
+        ),
+        resolver=resolver,
+        load_records=load_records,
+    ))
+
+
+async def _build_query_preview(
+    *,
+    message: str,
+    workspace_context: WorkspaceContext,
+    resolver: Any | None,
+    load_records: bool,
+) -> QueryPreview:
+    recognizer = _PreviewRecognizer(build_maia_recognizer_from_config(), resolver=resolver)
+    selection_repository = InMemorySelectionSetRepository()
+    record_client = TestRecordClient(base_url=os.getenv("SIGMA_BASE_URL", "http://192.168.0.65:8081"), token=os.getenv("SIGMA_TOKEN"))
+    handler = create_maia_runtime(
+        recognizer=recognizer,
+        record_client=record_client,
+        state_repository=ConversationStateRepository(),
+        selection_repository=selection_repository,
+    )
+    response = await handler.handle_turn(
+        TurnRequest(
+            session_id="cli-preview",
+            message=message,
+            workspace_context=workspace_context,
+        )
+    )
+    selection_set_id = response.plan.data.get("selection_set_id") if response.plan.kind == "reply" else None
+    selection_set = selection_repository.get(selection_set_id) if isinstance(selection_set_id, str) and selection_set_id.strip() else None
+    records: tuple[TestRecordSummary, ...] = ()
+    if load_records and selection_set is not None:
+        records = (
+            await SelectionQueryCompiler(record_client).compile(
+                {
+                    "expression": selection_set.expression,
+                    "sort": selection_set.sort,
+                    "limit": selection_set.limit,
+                },
+                workspace_context=workspace_context,
+            )
+        ).records
+    if recognizer.last_report is None:
+        raise RuntimeError("preview recognizer did not capture a report")
+    return QueryPreview(report=recognizer.last_report, selection_set=selection_set, records=records)
+
+
 def _render_output(
     report: RecognitionReport,
     *,
     json_output: bool,
     compact: bool,
     include_diagnostics: bool,
+    preview: QueryPreview | None = None,
+    show_selection_set: bool = False,
+    load_records: bool = False,
 ) -> str:
     if json_output:
         return render_report_json(report, compact=compact)
-    return render_report(report, include_diagnostics=include_diagnostics)
+    sections = [render_report(report, include_diagnostics=include_diagnostics)]
+    if show_selection_set:
+        sections.append(_render_selection_set(preview.selection_set if preview else None))
+    if load_records:
+        sections.append(_render_loaded_records(() if preview is None else preview.records))
+    return "\n\n".join(sections)
 
 
 def _read_prompted_line(prompt: str) -> str:
@@ -208,6 +329,59 @@ def _write_stdout(text: str) -> None:
     sys.stdout.write(text)
     sys.stdout.write("\n")
     sys.stdout.flush()
+
+
+class _PreviewRecognizer:
+    def __init__(self, recognizer: Any, *, resolver: Any | None) -> None:
+        self._recognizer = recognizer
+        self._resolver = resolver
+        self.last_report: RecognitionReport | None = None
+
+    async def recognize(
+        self,
+        message: str,
+        *,
+        include_diagnostics: bool = False,
+    ) -> RecognitionReport:
+        report = await self._recognizer.recognize(
+            message,
+            resolver=self._resolver,
+            include_diagnostics=include_diagnostics,
+        )
+        self.last_report = report
+        return report
+
+
+def _render_selection_set(selection_set: SelectionSet | None) -> str:
+    lines = ["Selection Set"]
+    if selection_set is None:
+        lines.append("  (none)")
+        return "\n".join(lines)
+    lines.extend(
+        [
+            _decision_line("ID", selection_set.selection_set_id),
+            _decision_line("Operation", selection_set.derived_operation),
+            _decision_line("Record count", str(selection_set.record_count)),
+            _decision_line(
+                "Sort",
+                "(none)"
+                if not selection_set.sort
+                else ", ".join(f"{item.field}:{item.direction}" for item in selection_set.sort),
+            ),
+            _decision_line("Expression", selection_set.expression.model_dump_json()),
+        ]
+    )
+    return "\n".join(lines)
+
+
+def _render_loaded_records(records: Sequence[TestRecordSummary]) -> str:
+    lines = ["Loaded Records"]
+    if not records:
+        lines.append("  (none)")
+        return "\n".join(lines)
+    for index, record in enumerate(records, start=1):
+        lines.append(f"  {index}. {record.record_id}  {record.serial_number or '(missing serialNo)'}")
+    return "\n".join(lines)
 
 
 def _render_input(report: RecognitionReport) -> str:

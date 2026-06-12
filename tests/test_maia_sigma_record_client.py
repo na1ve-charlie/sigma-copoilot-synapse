@@ -88,8 +88,8 @@ def test_test_record_client_calls_legacy_endpoint_with_mapped_query_params() -> 
         "lang": "zh",
         "page": 3,
         "rows": 50,
-        "productTypeList": ["dm0518"],
-        "summaryResultList": ["FAIL"],
+        "type": "dm0518",
+        "sumList": "FAIL",
     }
 
 
@@ -145,7 +145,7 @@ def test_test_record_client_wraps_invalid_json_payloads() -> None:
     with pytest.raises(TestRecordClientError, match="invalid JSON") as raised:
         asyncio.run(exercise())
 
-    assert raised.value.request_params["summaryResultList"] == ["FAIL"]
+    assert raised.value.request_params["sumList"] == "FAIL"
     assert isinstance(raised.value.__cause__, json.JSONDecodeError)
 
 
@@ -325,7 +325,7 @@ def test_test_record_client_wraps_legacy_payload_mapping_failures() -> None:
     with pytest.raises(TestRecordClientError, match="response mapping failed") as raised:
         asyncio.run(exercise())
 
-    assert raised.value.request_params["summaryResultList"] == ["FAIL"]
+    assert raised.value.request_params["sumList"] == "FAIL"
     assert isinstance(raised.value.__cause__, ValueError)
 
 

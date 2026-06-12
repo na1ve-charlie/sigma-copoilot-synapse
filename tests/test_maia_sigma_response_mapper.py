@@ -1,9 +1,9 @@
 from __future__ import annotations
 
+import pytest
+
 from maia.integrations.sigma.records import TestRecordPage
 from maia.integrations.sigma.response_mapper import LegacyRecordResponseMapper
-
-import pytest
 
 
 def test_response_mapper_projects_legacy_success_envelope_into_record_page() -> None:
@@ -24,7 +24,7 @@ def test_response_mapper_projects_legacy_success_envelope_into_record_page() -> 
                         "systemNo": "SYS-01",
                         "serialNumber": "SN1001",
                         "summaryResult": "FAIL",
-                        "manualTagList": ["异响", "异响"],
+                        "manualTagList": ["寮傚搷", "寮傚搷"],
                         "archiveStatus": "archived",
                         "repeatSerial": True,
                         "rawDataAvailable": True,
@@ -42,7 +42,7 @@ def test_response_mapper_projects_legacy_success_envelope_into_record_page() -> 
     assert page.returned_count == 1
     assert page.record_ids == ("rec-001",)
     assert page.records[0].tested_at.isoformat() == "2026-05-03T10:11:12+00:00"
-    assert page.records[0].manual_tags == ("异响",)
+    assert page.records[0].manual_tags == ("寮傚搷",)
     assert page.records[0].available_artifacts == ("raw_data", "report", "audio")
 
 
@@ -64,7 +64,7 @@ def test_response_mapper_accepts_alias_fields_and_explicit_artifact_lists() -> N
                         "systemNo": "SYS-02",
                         "serialNumber": "SN1002",
                         "summaryResult": "PASS",
-                        "manualTags": ["复测", "复测"],
+                        "manualTags": ["澶嶆祴", "澶嶆祴"],
                         "archiveStatus": "active",
                         "repeatSerial": "0",
                         "availableArtifacts": ["resultData", "colormap", "resultData"],
@@ -77,8 +77,50 @@ def test_response_mapper_accepts_alias_fields_and_explicit_artifact_lists() -> N
     record = page.records[0]
     assert record.record_id == "rec-002"
     assert record.repeat_serial is False
-    assert record.manual_tags == ("复测",)
+    assert record.manual_tags == ("澶嶆祴",)
     assert record.available_artifacts == ("result_data", "colormap")
+
+
+def test_response_mapper_accepts_current_sigma_report_field_aliases() -> None:
+    mapper = LegacyRecordResponseMapper()
+
+    page = mapper.map(
+        {
+            "code": 0,
+            "msg": "ok",
+            "data": {
+                "total": 1,
+                "list": [
+                    {
+                        "id": 46139,
+                        "testTime": "2026-05-29 12:37:50",
+                        "type": "hzzxkj-0527_4",
+                        "system": "7s-SNF1001",
+                        "serialNo": "T2505290000035_250619192942",
+                        "sum": "娆″紓甯?",
+                        "manualTagging": "澶嶆祴",
+                        "originData": True,
+                        "resultData": True,
+                        "ngaudio": True,
+                        "colorMap": True,
+                    }
+                ],
+            },
+        }
+    )
+
+    record = page.records[0]
+    assert record.record_id == "46139"
+    assert record.system_no == "7s-SNF1001"
+    assert record.serial_number == "T2505290000035_250619192942"
+    assert record.summary_result == "娆″紓甯?"
+    assert record.manual_tags == ("澶嶆祴",)
+    assert record.available_artifacts == (
+        "raw_data",
+        "result_data",
+        "audio",
+        "colormap",
+    )
 
 
 def test_response_mapper_surfaces_legacy_backend_failures() -> None:

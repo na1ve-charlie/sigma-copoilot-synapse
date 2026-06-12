@@ -3,9 +3,13 @@ from __future__ import annotations
 import asyncio
 import json
 from collections.abc import Iterator
+from datetime import UTC, datetime
+from types import SimpleNamespace
 
 from maia.cli import INTERACTIVE_SEPARATOR, main, render_report
+from maia.integrations.sigma.records import TestRecordSummary
 from maia.recognition import RecognitionReport
+from maia.selection import SelectionLineage, SelectionSet
 
 
 class FakeRecognizer:
@@ -303,6 +307,95 @@ def test_cli_interactive_mode_prints_separator_between_reports(
     assert "Input\n  delete these records" in output.out
 
 
+def test_cli_message_mode_can_render_selection_set_and_loaded_records(
+    monkeypatch,
+    tmp_path,
+    capsys,
+) -> None:
+    workspace_path = tmp_path / "workspace-context.json"
+    workspace_path.write_text('{"dataset_id":"1152","lang":"zh"}', encoding="utf-8")
+    monkeypatch.setattr(
+        "maia.cli.build_query_preview",
+        lambda **_: SimpleNamespace(
+            report=RecognitionReport(
+                message="show failing records",
+                verdict="clear",
+                requires_confirmation=False,
+                degraded=False,
+                action_intents=(
+                    {"name": "task.nvh.record_search", "score": 0.95},
+                ),
+            ),
+            selection_set=_selection_set(),
+            records=(
+                _record("rec-001", "SN1001"),
+                _record("rec-002", "SN1002"),
+            ),
+        ),
+    )
+
+    exit_code = main(
+        [
+            "recognize",
+            "--message",
+            "show failing records",
+            "--workspace-context",
+            str(workspace_path),
+            "--show-selection-set",
+            "--load-records",
+        ]
+    )
+    output = capsys.readouterr()
+
+    assert exit_code == 0
+    assert "Selection Set" in output.out
+    assert "sel-cli" in output.out
+    assert '"name":"summary_result_in"' in output.out
+    assert "Loaded Records" in output.out
+    assert "1. rec-001  SN1001" in output.out
+    assert "2. rec-002  SN1002" in output.out
+
+
+def test_cli_preview_flags_require_message_mode_and_workspace_context(
+    monkeypatch,
+    tmp_path,
+    capsys,
+) -> None:
+    workspace_path = tmp_path / "workspace-context.json"
+    workspace_path.write_text('{"dataset_id":"1152","lang":"zh"}', encoding="utf-8")
+    monkeypatch.setattr(
+        "maia.cli.build_query_preview",
+        lambda **_: (_ for _ in ()).throw(AssertionError("should not build preview")),
+    )
+
+    exit_code = main(
+        [
+            "recognize",
+            "--workspace-context",
+            str(workspace_path),
+            "--load-records",
+        ]
+    )
+    output = capsys.readouterr()
+
+    assert exit_code == 2
+    assert output.out == ""
+    assert "--load-records requires --message" in output.err
+
+    exit_code = main(
+        [
+            "recognize",
+            "--message",
+            "show failing records",
+            "--show-selection-set",
+        ]
+    )
+    output = capsys.readouterr()
+
+    assert exit_code == 2
+    assert "--show-selection-set requires --workspace-context" in output.err
+
+
 def test_cli_resolver_values_are_loaded_and_passed_to_runtime_recognition(
     monkeypatch,
     tmp_path,
@@ -348,3 +441,23 @@ def test_cli_resolver_values_are_loaded_and_passed_to_runtime_recognition(
     assert recognizer.messages == ["切换到 Vib1"]
     assert len(recognizer.resolvers) == 1
     assert run(recognizer.resolvers[0].resolve("sensor")) == ["Vib1", "Vib2"]
+
+
+def _selection_set() -> SelectionSet:
+    return SelectionSet(
+        selection_set_id="sel-cli",
+        expression={
+            "kind": "predicate",
+            "name": "summary_result_in",
+            "params": {"values": ["FAIL"]},
+        },
+        record_count=2,
+        record_ids=("rec-001", "rec-002"),
+        source_version="sigma-fixture-v1",
+        created_at=datetime(2026, 6, 11, 12, 0, tzinfo=UTC),
+        lineage=SelectionLineage(operation="create"),
+    )
+
+
+def _record(record_id: str, serial_number: str) -> TestRecordSummary:
+    return TestRecordSummary(record_id=record_id, serial_number=serial_number)
