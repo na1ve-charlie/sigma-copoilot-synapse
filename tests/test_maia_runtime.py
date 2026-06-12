@@ -1,17 +1,22 @@
 from __future__ import annotations
 
 import asyncio
-import json
 from datetime import UTC, datetime
 
 from maia.api import TurnRequest, WorkspaceContext
 from maia.integrations.sigma.records import TestRecordPage, TestRecordSummary
 from maia.recognition import RecognitionReport
+from maia.selection.expression import AllOf, AnyOf, Not, Predicate, parse_filter_expression
 
 
 def test_runtime_returns_reply_plan_without_workspace_context_and_materializes_dataset() -> None:
     from maia.runtime import create_maia_runtime
 
+    records = (
+        _record("r-1", day=1, product_type="A", config_version="1", system_no="SYS-1"),
+        _record("r-2", day=2, product_type="A", config_version="1", system_no="SYS-1", summary_result="FAIL"),
+        _record("r-3", day=3, product_type="A", config_version="1", system_no="SYS-1"),
+    )
     handler = create_maia_runtime(
         recognizer=_SequenceRecognizer(
             [
@@ -23,8 +28,8 @@ def test_runtime_returns_reply_plan_without_workspace_context_and_materializes_d
                 )
             ]
         ),
-        record_client=_RecordClient(),
-        product_catalog=_ProductCatalog([_config("A", "1", "SYS-1")]),
+        record_client=_RecordClient(records),
+        product_catalog=_ProductCatalog(_configs_from_records(records)),
         selection_materializer=_Materializer(),
         source_version="sigma-fixture-v1",
     )
@@ -42,6 +47,11 @@ def test_runtime_returns_reply_plan_without_workspace_context_and_materializes_d
 def test_runtime_derives_follow_up_record_search_from_active_selection() -> None:
     from maia.runtime import create_maia_runtime
 
+    records = (
+        _record("r-1", day=1, product_type="A", config_version="1", system_no="SYS-1"),
+        _record("r-2", day=2, product_type="A", config_version="1", system_no="SYS-1", summary_result="FAIL"),
+        _record("r-3", day=3, product_type="A", config_version="1", system_no="SYS-1"),
+    )
     handler = create_maia_runtime(
         recognizer=_SequenceRecognizer(
             [
@@ -54,13 +64,13 @@ def test_runtime_derives_follow_up_record_search_from_active_selection() -> None
                 _report(
                     actions=["task.nvh.record_search"],
                     operations=[
-                        {"action": "add", "entity_type": "summary_result", "target": "不合格"},
+                        {"action": "add", "entity_type": "summary_result", "target": "FAIL"},
                     ],
                 ),
             ]
         ),
-        record_client=_RecordClient(),
-        product_catalog=_ProductCatalog([_config("A", "1", "SYS-1")]),
+        record_client=_RecordClient(records),
+        product_catalog=_ProductCatalog(_configs_from_records(records)),
         selection_materializer=_Materializer(),
         source_version="sigma-fixture-v1",
     )
@@ -78,6 +88,10 @@ def test_runtime_derives_follow_up_record_search_from_active_selection() -> None
 def test_runtime_resolves_active_selection_reference_to_same_selection() -> None:
     from maia.runtime import create_maia_runtime
 
+    records = (
+        _record("r-1", day=1, product_type="A", config_version="1", system_no="SYS-1"),
+        _record("r-2", day=2, product_type="A", config_version="1", system_no="SYS-1"),
+    )
     handler = create_maia_runtime(
         recognizer=_SequenceRecognizer(
             [
@@ -99,8 +113,8 @@ def test_runtime_resolves_active_selection_reference_to_same_selection() -> None
                 ),
             ]
         ),
-        record_client=_RecordClient(),
-        product_catalog=_ProductCatalog([_config("A", "1", "SYS-1")]),
+        record_client=_RecordClient(records),
+        product_catalog=_ProductCatalog(_configs_from_records(records)),
         selection_materializer=_Materializer(),
         source_version="sigma-fixture-v1",
     )
@@ -116,6 +130,11 @@ def test_runtime_resolves_active_selection_reference_to_same_selection() -> None
 def test_runtime_treats_selection_only_report_as_record_search_request() -> None:
     from maia.runtime import create_maia_runtime
 
+    records = (
+        _record("r-1", day=1, product_type="A", config_version="1", system_no="SYS-1"),
+        _record("r-2", day=2, product_type="A", config_version="1", system_no="SYS-1"),
+        _record("r-3", day=3, product_type="A", config_version="1", system_no="SYS-1"),
+    )
     handler = create_maia_runtime(
         recognizer=_SequenceRecognizer(
             [
@@ -127,8 +146,8 @@ def test_runtime_treats_selection_only_report_as_record_search_request() -> None
                 )
             ]
         ),
-        record_client=_RecordClient(),
-        product_catalog=_ProductCatalog([_config("A", "1", "SYS-1")]),
+        record_client=_RecordClient(records),
+        product_catalog=_ProductCatalog(_configs_from_records(records)),
         source_version="sigma-fixture-v1",
     )
 
@@ -139,27 +158,27 @@ def test_runtime_treats_selection_only_report_as_record_search_request() -> None
     assert response.plan.data["record_ids"] == ["r-1", "r-2", "r-3"]
 
 
-def test_runtime_clarifies_missing_product_type_with_recent_candidates() -> None:
+def test_runtime_clarifies_product_type_from_filtered_records() -> None:
     from maia.runtime import create_maia_runtime
 
+    records = (
+        _record("r-1", day=1, product_type="A", config_version="1", system_no="SYS-1"),
+        _record("r-2", day=2, product_type="A", config_version="1", system_no="SYS-1", summary_result="FAIL"),
+        _record("r-4", day=4, product_type="B", config_version="1", system_no="SYS-2", summary_result="FAIL"),
+    )
     handler = create_maia_runtime(
         recognizer=_SequenceRecognizer(
             [
                 _report(
                     actions=["task.nvh.record_search"],
                     operations=[
-                        {"action": "replace", "entity_type": "summary_result", "target": "不合格"},
+                        {"action": "replace", "entity_type": "summary_result", "target": "FAIL"},
                     ],
                 )
             ]
         ),
-        record_client=_RecordClient(),
-        product_catalog=_ProductCatalog(
-            [
-                _config("B", "1", "SYS-2", day=12),
-                _config("A", "1", "SYS-1", day=11),
-            ]
-        ),
+        record_client=_RecordClient(records),
+        product_catalog=_ProductCatalog(_configs_from_records(records)),
         source_version="sigma-fixture-v1",
     )
 
@@ -168,46 +187,123 @@ def test_runtime_clarifies_missing_product_type_with_recent_candidates() -> None
     assert response.plan.kind == "clarify"
     assert response.plan.reason == "missing_slots"
     assert response.plan.missing_slots == ["product_type"]
-    assert [candidate.value for candidate in response.plan.prompts[0].candidates] == ["B", "A"]
-
-
-def test_runtime_auto_fills_unique_version_and_clarifies_system_only_on_conflict() -> None:
-    from maia.runtime import create_maia_runtime
-
-    handler = create_maia_runtime(
-        recognizer=_SequenceRecognizer(
-            [
-                _report(
-                    actions=["task.nvh.record_search"],
-                    operations=[
-                        {"action": "replace", "entity_type": "product_type", "target": "A"},
-                    ],
-                )
-            ]
-        ),
-        record_client=_RecordClient(),
-        product_catalog=_ProductCatalog(
-            [
-                _config("A", "1", "SYS-1"),
-                _config("A", "1", "SYS-2"),
-            ]
-        ),
-        source_version="sigma-fixture-v1",
-    )
-
-    response = asyncio.run(handler.handle_turn(_request("s1", "find A records")))
-
-    assert response.plan.kind == "clarify"
-    assert response.plan.missing_slots == ["type_system"]
+    assert response.plan.message == "\u5f53\u524d\u7b5b\u9009\u7684\u6d4b\u8bd5\u8bb0\u5f55\u6db5\u76d6\u4e86B\u3001A\uff0c\u8bf7\u9009\u62e9\u4f60\u8981\u89c2\u5bdf\u7684\u4ea7\u54c1\u578b\u53f7\u3002"
     assert [candidate.value for candidate in response.plan.prompts[0].candidates] == [
-        "SYS-1",
-        "SYS-2",
+        "B",
+        "A",
+        "__ALL_PRODUCTS__",
     ]
 
 
-def test_runtime_clarifies_config_version_when_product_has_multiple_versions() -> None:
+def test_runtime_clarifies_product_type_when_request_has_no_filters() -> None:
     from maia.runtime import create_maia_runtime
 
+    records = (
+        _record("r-1", day=1, product_type="A", config_version="1", system_no="SYS-1"),
+        _record("r-2", day=2, product_type="B", config_version="1", system_no="SYS-2"),
+    )
+    handler = create_maia_runtime(
+        recognizer=_SequenceRecognizer([_report(actions=["task.nvh.record_search"], operations=[])]),
+        record_client=_RecordClient(records),
+        product_catalog=_ProductCatalog(_configs_from_records(records)),
+        source_version="sigma-fixture-v1",
+    )
+
+    response = asyncio.run(handler.handle_turn(_request("s1", "show records")))
+
+    assert response.plan.kind == "clarify"
+    assert response.plan.missing_slots == ["product_type"]
+    assert [candidate.value for candidate in response.plan.prompts[0].candidates] == [
+        "B",
+        "A",
+        "__ALL_PRODUCTS__",
+    ]
+
+
+def test_runtime_limits_missing_product_type_candidates_to_recent_top_five_plus_all() -> None:
+    from maia.runtime import create_maia_runtime
+
+    records = tuple(
+        _record(
+            f"r-{index}",
+            day=index,
+            product_type=f"P{index}",
+            config_version="1",
+            system_no=f"SYS-{index}",
+            summary_result="FAIL",
+        )
+        for index in range(1, 7)
+    )
+    handler = create_maia_runtime(
+        recognizer=_SequenceRecognizer(
+            [
+                _report(
+                    actions=["task.nvh.record_search"],
+                    operations=[
+                        {"action": "replace", "entity_type": "summary_result", "target": "FAIL"},
+                    ],
+                )
+            ]
+        ),
+        record_client=_RecordClient(records),
+        product_catalog=_ProductCatalog(_configs_from_records(records)),
+        source_version="sigma-fixture-v1",
+    )
+
+    response = asyncio.run(handler.handle_turn(_request("s1", "show failing records")))
+
+    assert response.plan.kind == "clarify"
+    assert response.plan.message == "\u5f53\u524d\u7b5b\u9009\u7684\u6d4b\u8bd5\u8bb0\u5f55\u6db5\u76d6\u4e86P6\u3001P5\u3001P4\u7b49 6 \u4e2a\u4ea7\u54c1\u578b\u53f7\uff0c\u8bf7\u9009\u62e9\u4f60\u8981\u89c2\u5bdf\u7684\u4ea7\u54c1\u578b\u53f7\u3002"
+    assert [candidate.value for candidate in response.plan.prompts[0].candidates] == [
+        "P6",
+        "P5",
+        "P4",
+        "P3",
+        "P2",
+        "__ALL_PRODUCTS__",
+    ]
+
+
+def test_runtime_all_product_apply_continues_pending_search_without_type_filter() -> None:
+    from maia.runtime import create_maia_runtime
+
+    records = (
+        _record("r-1", day=1, product_type="A", config_version="1", system_no="SYS-1"),
+        _record("r-2", day=2, product_type="A", config_version="1", system_no="SYS-1", summary_result="FAIL"),
+        _record("r-4", day=4, product_type="B", config_version="1", system_no="SYS-2", summary_result="FAIL"),
+    )
+    handler = create_maia_runtime(
+        recognizer=_SequenceRecognizer(
+            [
+                _report(
+                    actions=["task.nvh.record_search"],
+                    operations=[
+                        {"action": "replace", "entity_type": "summary_result", "target": "FAIL"},
+                    ],
+                ),
+                _report(actions=["task.nvh.record_search"], operations=[]),
+            ]
+        ),
+        record_client=_RecordClient(records),
+        product_catalog=_ProductCatalog(_configs_from_records(records)),
+        source_version="sigma-fixture-v1",
+    )
+
+    first = asyncio.run(handler.handle_turn(_request("s1", "show failing records")))
+    second = asyncio.run(handler.handle_turn(_request("s1", "__ALL_PRODUCTS__")))
+
+    assert first.plan.kind == "clarify"
+    assert second.plan.kind == "reply"
+    assert second.plan.data["record_ids"] == ["r-2", "r-4"]
+
+
+def test_runtime_clarifies_config_version_and_apply_continues() -> None:
+    from maia.runtime import create_maia_runtime
+
+    records = (
+        _record("r-1", day=1, product_type="A", config_version="1", system_no="SYS-1"),
+        _record("r-3", day=3, product_type="A", config_version="2", system_no="SYS-2"),
+    )
     handler = create_maia_runtime(
         recognizer=_SequenceRecognizer(
             [
@@ -216,29 +312,80 @@ def test_runtime_clarifies_config_version_when_product_has_multiple_versions() -
                     operations=[
                         {"action": "replace", "entity_type": "product_type", "target": "A"},
                     ],
-                )
+                ),
+                _report(
+                    actions=["task.nvh.record_search"],
+                    operations=[
+                        {"action": "replace", "entity_type": "config_version", "target": "2"},
+                    ],
+                ),
             ]
         ),
-        record_client=_RecordClient(),
-        product_catalog=_ProductCatalog(
-            [
-                _config("A", "1", "SYS-1"),
-                _config("A", "2", "SYS-2"),
-            ]
-        ),
+        record_client=_RecordClient(records),
+        product_catalog=_ProductCatalog(_configs_from_records(records)),
         source_version="sigma-fixture-v1",
     )
 
-    response = asyncio.run(handler.handle_turn(_request("s1", "find A records")))
+    first = asyncio.run(handler.handle_turn(_request("s1", "find A records")))
+    second = asyncio.run(handler.handle_turn(_request("s1", "2")))
 
-    assert response.plan.kind == "clarify"
-    assert response.plan.missing_slots == ["config_version"]
-    assert [candidate.value for candidate in response.plan.prompts[0].candidates] == ["1", "2"]
+    assert first.plan.kind == "clarify"
+    assert first.plan.missing_slots == ["config_version"]
+    assert [candidate.value for candidate in first.plan.prompts[0].candidates] == ["2", "1"]
+    assert second.plan.kind == "reply"
+    assert second.plan.data["record_ids"] == ["r-3"]
 
 
-def test_runtime_marks_invalid_product_combination() -> None:
+def test_runtime_clarifies_type_system_and_apply_continues() -> None:
     from maia.runtime import create_maia_runtime
 
+    records = (
+        _record("r-6", day=6, product_type="A", config_version="2", system_no="SYS-05"),
+        _record("r-7", day=7, product_type="A", config_version="2", system_no="SYS-04"),
+    )
+    handler = create_maia_runtime(
+        recognizer=_SequenceRecognizer(
+            [
+                _report(
+                    actions=["task.nvh.record_search"],
+                    operations=[
+                        {"action": "replace", "entity_type": "product_type", "target": "A"},
+                        {"action": "replace", "entity_type": "config_version", "target": "2"},
+                    ],
+                ),
+                _report(
+                    actions=["task.nvh.record_search"],
+                    operations=[
+                        {"action": "replace", "entity_type": "type_system", "target": "SYS-05"},
+                    ],
+                ),
+            ]
+        ),
+        record_client=_RecordClient(records),
+        product_catalog=_ProductCatalog(_configs_from_records(records)),
+        source_version="sigma-fixture-v1",
+    )
+
+    first = asyncio.run(handler.handle_turn(_request("s1", "find A version 2 records")))
+    second = asyncio.run(handler.handle_turn(_request("s1", "SYS-05")))
+
+    assert first.plan.kind == "clarify"
+    assert first.plan.missing_slots == ["type_system"]
+    assert [candidate.value for candidate in first.plan.prompts[0].candidates] == [
+        "SYS-04",
+        "SYS-05",
+    ]
+    assert second.plan.kind == "reply"
+    assert second.plan.data["record_ids"] == ["r-6"]
+
+
+def test_runtime_marks_invalid_config_version_against_filtered_product_scope() -> None:
+    from maia.runtime import create_maia_runtime
+
+    records = (
+        _record("r-1", day=1, product_type="A", config_version="1", system_no="SYS-1"),
+        _record("r-3", day=3, product_type="A", config_version="2", system_no="SYS-2"),
+    )
     handler = create_maia_runtime(
         recognizer=_SequenceRecognizer(
             [
@@ -251,8 +398,8 @@ def test_runtime_marks_invalid_product_combination() -> None:
                 )
             ]
         ),
-        record_client=_RecordClient(),
-        product_catalog=_ProductCatalog([_config("A", "1", "SYS-1")]),
+        record_client=_RecordClient(records),
+        product_catalog=_ProductCatalog(_configs_from_records(records)),
         source_version="sigma-fixture-v1",
     )
 
@@ -261,27 +408,56 @@ def test_runtime_marks_invalid_product_combination() -> None:
     assert response.plan.kind == "clarify"
     assert response.plan.reason == "invalid_slots"
     assert response.plan.invalid_slots == ["config_version"]
-    assert [candidate.value for candidate in response.plan.prompts[0].candidates] == ["1"]
+    assert [candidate.value for candidate in response.plan.prompts[0].candidates] == ["2", "1"]
+
+
+def test_runtime_accepts_zero_version_from_filtered_records() -> None:
+    from maia.runtime import create_maia_runtime
+
+    records = (
+        _record("r-5", day=5, product_type="HZXJ0515", config_version="0", system_no="SYS-1"),
+    )
+    handler = create_maia_runtime(
+        recognizer=_SequenceRecognizer(
+            [
+                _report(
+                    actions=["task.nvh.record_search"],
+                    operations=[
+                        {"action": "replace", "entity_type": "product_type", "target": "HZXJ0515"},
+                        {"action": "replace", "entity_type": "config_version", "target": "0"},
+                    ],
+                )
+            ]
+        ),
+        record_client=_RecordClient(records),
+        product_catalog=_ProductCatalog(_configs_from_records(records)),
+        source_version="sigma-fixture-v1",
+    )
+
+    response = asyncio.run(handler.handle_turn(_request("s1", "find HZXJ0515 version 0 records")))
+
+    assert response.plan.kind == "reply"
+    assert response.plan.data["record_ids"] == ["r-5"]
 
 
 class _SequenceRecognizer:
     def __init__(self, reports: list[RecognitionReport]) -> None:
         self._reports = iter(reports)
 
-    async def recognize(self, message: str, *, resolver=None, include_diagnostics: bool = False) -> RecognitionReport:
+    async def recognize(
+        self,
+        message: str,
+        *,
+        resolver=None,
+        include_diagnostics: bool = False,
+    ) -> RecognitionReport:
         del message, resolver, include_diagnostics
         return next(self._reports)
 
 
 class _RecordClient:
-    def __init__(self) -> None:
-        shared = _page(["r-1", "r-2", "r-3"])
-        self._pages = {
-            _key({"kind": "predicate", "name": "product_type_in", "params": {"values": ["A"]}}): shared,
-            _key({"kind": "predicate", "name": "config_version_in", "params": {"values": ["1"]}}): shared,
-            _key({"kind": "predicate", "name": "type_system_in", "params": {"values": ["SYS-1"]}}): shared,
-            _key({"kind": "predicate", "name": "summary_result_in", "params": {"values": ["不合格"]}}): _page(["r-2", "r-4"]),
-        }
+    def __init__(self, records: tuple[TestRecordSummary, ...]) -> None:
+        self._records = records
 
     async def list_records(
         self,
@@ -291,22 +467,18 @@ class _RecordClient:
         page: int | None = None,
         rows: int | None = None,
     ) -> TestRecordPage:
-        del workspace_context, page, rows
-        key = "<all>" if expression is None else _key(expression)
-        if key not in self._pages:
-            payload = json.loads(key)
-            if payload.get("kind") == "all_of":
-                return _intersect_page(
-                    self._pages[_key(item)]
-                    for item in payload["expressions"]
-                )
-            raise ValueError(f"unsupported query branch: {key}")
-        return self._pages[key]
+        del workspace_context
+        filtered = tuple(record for record in self._records if _matches(record, expression))
+        page_number = page or 1
+        row_count = rows or 500
+        start = (page_number - 1) * row_count
+        end = start + row_count
+        return TestRecordPage(total=len(filtered), records=filtered[start:end])
 
 
 class _ProductCatalog:
-    def __init__(self, configs: list[ProductConfig]) -> None:
-        self._configs = tuple(configs)
+    def __init__(self, configs: tuple[ProductConfig, ...]) -> None:
+        self._configs = configs
 
     async def list_configs(self, *, lang: str = "zh") -> tuple[ProductConfig, ...]:
         del lang
@@ -323,21 +495,100 @@ class _Materializer:
         return f"dataset-{self._counter}"
 
 
-def _config(
-    product_type: str,
-    config_version: str,
-    type_system: str,
-    *,
-    day: int = 11,
-) -> ProductConfig:
+def _configs_from_records(
+    records: tuple[TestRecordSummary, ...],
+) -> tuple[ProductConfig, ...]:
     from maia.integrations.sigma.product_catalog import ProductConfig
 
-    return ProductConfig(
+    configs: list[ProductConfig] = []
+    seen: set[tuple[str, str, str]] = set()
+    for record in sorted(records, key=lambda item: item.tested_at or datetime(1970, 1, 1, tzinfo=UTC), reverse=True):
+        key = (
+            record.product_type or "",
+            record.config_version or "",
+            record.system_no or "",
+        )
+        if "" in key or key in seen:
+            continue
+        seen.add(key)
+        configs.append(
+            ProductConfig(
+                product_type=key[0],
+                config_version=key[1],
+                type_system=key[2],
+                update_time=record.tested_at,
+            )
+        )
+    return tuple(configs)
+
+
+def _record(
+    record_id: str,
+    *,
+    day: int,
+    product_type: str,
+    config_version: str,
+    system_no: str,
+    summary_result: str = "PASS",
+) -> TestRecordSummary:
+    return TestRecordSummary(
+        record_id=record_id,
+        tested_at=datetime(2026, 6, day, 9, 30, tzinfo=UTC),
         product_type=product_type,
         config_version=config_version,
-        type_system=type_system,
-        update_time=datetime(2026, 6, day, 9, 30),
+        system_no=system_no,
+        serial_number=f"SN-{record_id}",
+        summary_result=summary_result,
+        available_artifacts=("raw_data",),
     )
+
+
+def _matches(record: TestRecordSummary, expression) -> bool:
+    if expression is None:
+        return True
+    parsed = parse_filter_expression(expression)
+    if isinstance(parsed, Predicate):
+        return _matches_predicate(record, parsed)
+    if isinstance(parsed, AllOf):
+        return all(_matches(record, child) for child in parsed.expressions)
+    if isinstance(parsed, AnyOf):
+        return any(_matches(record, child) for child in parsed.expressions)
+    if isinstance(parsed, Not):
+        return not _matches(record, parsed.expression)
+    raise AssertionError(f"unsupported expression: {parsed}")
+
+
+def _matches_predicate(record: TestRecordSummary, predicate: Predicate) -> bool:
+    if predicate.name == "product_type_in":
+        return record.product_type in _values(predicate)
+    if predicate.name == "config_version_in":
+        return record.config_version in _values(predicate)
+    if predicate.name == "type_system_in":
+        return record.system_no in _values(predicate)
+    if predicate.name == "summary_result_in":
+        return record.summary_result in _values(predicate)
+    if predicate.name == "tested_at_between":
+        start = predicate.params.get("start")
+        end = predicate.params.get("end")
+        tested_at = record.tested_at
+        if tested_at is None:
+            return False
+        naive = tested_at.replace(tzinfo=None)
+        if isinstance(start, str) and naive < datetime.strptime(start, "%Y-%m-%d %H:%M:%S"):
+            return False
+        if isinstance(end, str) and naive > datetime.strptime(end, "%Y-%m-%d %H:%M:%S"):
+            return False
+        return True
+    raise AssertionError(f"unsupported predicate: {predicate.name}")
+
+
+def _values(predicate: Predicate) -> tuple[str, ...]:
+    raw = predicate.params.get("values")
+    if isinstance(raw, tuple):
+        return tuple(str(value) for value in raw)
+    if raw is None:
+        return ()
+    return (str(raw),)
 
 
 def _report(
@@ -373,35 +624,3 @@ def _request(
         message=message,
         workspace_context=workspace_context,
     )
-
-
-def _page(record_ids: list[str]) -> TestRecordPage:
-    return TestRecordPage(total=len(record_ids), records=tuple(_record(record_id) for record_id in record_ids))
-
-
-def _intersect_page(pages) -> TestRecordPage:
-    ordered_pages = tuple(pages)
-    record_ids = set(ordered_pages[0].record_ids)
-    for page in ordered_pages[1:]:
-        record_ids &= set(page.record_ids)
-    ordered_ids = [record_id for record_id in ordered_pages[0].record_ids if record_id in record_ids]
-    return _page(ordered_ids)
-
-
-def _record(record_id: str) -> TestRecordSummary:
-    day = int(record_id.split("-")[1])
-    return TestRecordSummary(
-        record_id=record_id,
-        tested_at=datetime(2026, 6, day, 9, 30, tzinfo=UTC),
-        product_type="A" if day < 4 else "B",
-        config_version="1",
-        system_no="SYS-1",
-        serial_number=f"SN-{record_id}",
-        summary_result="不合格" if record_id in {"r-2", "r-4"} else "合格",
-        available_artifacts=("raw_data",),
-    )
-
-
-def _key(expression: object) -> str:
-    payload = expression.model_dump(mode="json") if hasattr(expression, "model_dump") else expression
-    return json.dumps(payload, ensure_ascii=False, sort_keys=True)

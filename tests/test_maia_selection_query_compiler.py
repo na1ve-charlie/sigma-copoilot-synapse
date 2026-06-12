@@ -10,7 +10,7 @@ import pytest
 
 from maia.api import WorkspaceContext
 from maia.integrations.sigma.records import TestRecordPage, TestRecordSummary
-from maia.selection.compiler import SelectionQueryCompileError, SelectionQueryCompiler
+from maia.selection.compiler import ALL_RECORDS_PREDICATE_NAME, SelectionQueryCompileError, SelectionQueryCompiler
 from maia.selection.query import SelectionQuery
 
 
@@ -155,6 +155,31 @@ def test_query_compiler_supports_root_not_against_dataset_scope() -> None:
 
     assert result.record_ids == ("r-1", "r-3")
     assert result.record_count == 2
+    assert client.calls[0] == ("<all>", 1, 10)
+
+
+def test_query_compiler_treats_all_records_predicate_as_dataset_scope() -> None:
+    client = FakeRecordClient(
+        {
+            "<all>": [_page(["r-1", "r-2", "r-3"], total=3)],
+        }
+    )
+
+    result = asyncio.run(
+        SelectionQueryCompiler(client, page_size=10).compile(
+            {
+                "expression": {
+                    "kind": "predicate",
+                    "name": ALL_RECORDS_PREDICATE_NAME,
+                    "params": {},
+                }
+            },
+            workspace_context=_workspace_context(),
+        )
+    )
+
+    assert result.record_ids == ("r-1", "r-2", "r-3")
+    assert result.record_count == 3
     assert client.calls[0] == ("<all>", 1, 10)
 
 

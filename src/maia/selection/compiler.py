@@ -11,6 +11,8 @@ from maia.selection.expression import AllOf, AnyOf, FilterExpression, Not, Predi
 from maia.selection.query import CompiledSelectionQuery, SelectionQuery, parse_selection_query
 from maia.selection.sets import SelectionSort
 
+ALL_RECORDS_PREDICATE_NAME = "all_records"
+
 
 class SelectionRecordClient(Protocol):
     async def list_records(
@@ -46,10 +48,23 @@ class SelectionQueryCompiler:
         workspace_context: WorkspaceContext | None,
     ) -> CompiledSelectionQuery:
         parsed = parse_selection_query(query)
-        records = await self._evaluate(parsed.expression, workspace_context=workspace_context)
+        records = await self.records_for_expression(
+            parsed.expression,
+            workspace_context=workspace_context,
+        )
         ordered = _sort_records(records, parsed.sort)
         limited = ordered if parsed.limit is None else ordered[: parsed.limit]
         return CompiledSelectionQuery(query=parsed, records=limited)
+
+    async def records_for_expression(
+        self,
+        expression: FilterExpression | Mapping[str, object] | None,
+        *,
+        workspace_context: WorkspaceContext | None,
+    ) -> tuple[TestRecordSummary, ...]:
+        if expression is None:
+            return await self._fetch_dataset_scope(workspace_context=workspace_context)
+        return await self._evaluate(expression, workspace_context=workspace_context)
 
     async def _evaluate(
         self,
@@ -58,6 +73,8 @@ class SelectionQueryCompiler:
         workspace_context: WorkspaceContext | None,
     ) -> tuple[TestRecordSummary, ...]:
         parsed = parse_filter_expression(expression)
+        if isinstance(parsed, Predicate) and parsed.name == ALL_RECORDS_PREDICATE_NAME:
+            return await self._fetch_dataset_scope(workspace_context=workspace_context)
         if isinstance(parsed, Predicate):
             return await self._fetch_pushdown_records(parsed, workspace_context=workspace_context)
         if isinstance(parsed, AnyOf):
@@ -213,6 +230,7 @@ def _sort_records(
 
 
 __all__ = [
+    "ALL_RECORDS_PREDICATE_NAME",
     "SelectionQueryCompileError",
     "SelectionQueryCompiler",
     "SelectionRecordClient",

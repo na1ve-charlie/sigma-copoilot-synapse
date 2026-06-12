@@ -17,7 +17,11 @@ from maia.integrations.sigma.token_provider import SigmaTokenProvider
 
 
 LIST_PRODUCT_CONFIGS_OPERATION = "list_product_configs"
+LIST_PRODUCT_SYSTEMS_OPERATION = "list_product_systems"
+LIST_PRODUCT_VERSIONS_OPERATION = "list_product_versions"
 PRODUCT_CONFIGS_PATH = "/api/storage/type"
+PRODUCT_SYSTEMS_PATH = "/api/storage/type/listSystemNos"
+PRODUCT_VERSIONS_PATH = "/api/storage/type/listVersions"
 _SUCCESS_CODES = frozenset({0, 200, "0", "200"})
 _TIME_FORMAT = "%Y-%m-%d %H:%M:%S"
 ProductCatalogTransport: TypeAlias = Callable[
@@ -51,13 +55,19 @@ class SigmaProductCatalogClient:
         token_provider: SigmaTokenProvider | None = None,
         timeout: float = 5.0,
         endpoint_path: str = PRODUCT_CONFIGS_PATH,
+        systems_path: str = PRODUCT_SYSTEMS_PATH,
+        versions_path: str = PRODUCT_VERSIONS_PATH,
         transport: ProductCatalogTransport | None = None,
     ) -> None:
         normalized_base_url = base_url.rstrip("/")
         if not normalized_base_url:
             raise ValueError("base_url is required")
         self._path = endpoint_path if endpoint_path.startswith("/") else f"/{endpoint_path}"
+        self._systems_path = systems_path if systems_path.startswith("/") else f"/{systems_path}"
+        self._versions_path = versions_path if versions_path.startswith("/") else f"/{versions_path}"
         self._url = f"{normalized_base_url}{self._path}"
+        self._systems_url = f"{normalized_base_url}{self._systems_path}"
+        self._versions_url = f"{normalized_base_url}{self._versions_path}"
         self._timeout = timeout
         self._token = None if token is None or not token.strip() else token.strip()
         self._token_provider = token_provider
@@ -65,24 +75,11 @@ class SigmaProductCatalogClient:
 
     async def list_configs(self, *, lang: str = "zh") -> tuple[ProductConfig, ...]:
         params = {"page": 1, "rows": 99999, "status": 1, "lang": lang}
-        status_code, body = await asyncio.to_thread(
-            self._transport,
+        payload = await self._request_payload(
             self._url,
             params,
-            _headers(self._token, self._token_provider),
-            self._timeout,
+            operation=LIST_PRODUCT_CONFIGS_OPERATION,
         )
-        try:
-            payload = json.loads(body) if body else {}
-        except json.JSONDecodeError as exc:
-            raise ProductCatalogError(
-                f"SigMA {LIST_PRODUCT_CONFIGS_OPERATION} returned invalid JSON"
-            ) from exc
-        error = _backend_error(payload, status_code)
-        if error:
-            raise ProductCatalogError(
-                f"SigMA {LIST_PRODUCT_CONFIGS_OPERATION} backend error: {error}"
-            )
         rows = payload.get("data", {}).get("rows", ())
         if not isinstance(rows, list):
             return ()
@@ -93,11 +90,68 @@ class SigmaProductCatalogClient:
             )
         )
 
+    async def list_versions(self, product_type: str, *, lang: str = "zh") -> tuple[str, ...]:
+        normalized_type = product_type.strip()
+        if not normalized_type:
+            return ()
+        payload = await self._request_payload(
+            self._versions_url,
+            {"typeList": normalized_type, "lang": lang},
+            operation=LIST_PRODUCT_VERSIONS_OPERATION,
+        )
+        data = payload.get("data")
+        if not isinstance(data, list):
+            return ()
+        return _distinct(_coerce_text(value) for value in data)
+
+    async def list_systems(self, product_type: str, *, lang: str = "zh") -> tuple[str, ...]:
+        normalized_type = product_type.strip()
+        if not normalized_type:
+            return ()
+        payload = await self._request_payload(
+            self._systems_url,
+            {"typeList": normalized_type, "lang": lang},
+            operation=LIST_PRODUCT_SYSTEMS_OPERATION,
+        )
+        data = payload.get("data")
+        if not isinstance(data, list):
+            return ()
+        return _distinct(_coerce_text(value) for value in data)
+
+    async def _request_payload(
+        self,
+        url: str,
+        params: dict[str, object],
+        *,
+        operation: str,
+    ) -> dict[str, object]:
+        status_code, body = await asyncio.to_thread(
+            self._transport,
+            url,
+            params,
+            _headers(self._token, self._token_provider),
+            self._timeout,
+        )
+        try:
+            payload = json.loads(body) if body else {}
+        except json.JSONDecodeError as exc:
+            raise ProductCatalogError(
+                f"SigMA {operation} returned invalid JSON"
+            ) from exc
+        error = _backend_error(payload, status_code)
+        if error:
+            raise ProductCatalogError(
+                f"SigMA {operation} backend error: {error}"
+            )
+        return payload if isinstance(payload, dict) else {}
+
 
 def _product_config(row: Mapping[str, Any]) -> ProductConfig:
-    product_type = str(row.get("type") or row.get("name") or "").strip()
-    config_version = str(row.get("version") or row.get("versionName") or "").strip()
-    type_system = str(row.get("systemNo") or "").strip()
+    product_type = _coerce_text(row.get("type")) or _coerce_text(row.get("name"))
+    config_version = _coerce_text(row.get("version"))
+    if config_version is None:
+        config_version = _coerce_text(row.get("versionName"))
+    type_system = _coerce_text(row.get("systemNo"))
     if not product_type or not config_version or not type_system:
         raise ProductCatalogError("SigMA product config rows must include type, version, and systemNo")
     return ProductConfig(
@@ -126,6 +180,17 @@ def _optional_text(value: Any) -> str | None:
         return None
     text = value.strip()
     return text or None
+
+
+def _coerce_text(value: Any) -> str | None:
+    if value is None:
+        return None
+    text = str(value).strip()
+    return text or None
+
+
+def _distinct(values: Any) -> tuple[str, ...]:
+    return tuple(dict.fromkeys(value for value in values if value))
 
 
 def _fetch_with_urllib(
@@ -166,7 +231,11 @@ def _backend_error(payload: object, status_code: int) -> str | None:
 
 __all__ = [
     "LIST_PRODUCT_CONFIGS_OPERATION",
+    "LIST_PRODUCT_SYSTEMS_OPERATION",
+    "LIST_PRODUCT_VERSIONS_OPERATION",
     "PRODUCT_CONFIGS_PATH",
+    "PRODUCT_SYSTEMS_PATH",
+    "PRODUCT_VERSIONS_PATH",
     "ProductCatalogError",
     "ProductConfig",
     "ProductCatalogTransport",
