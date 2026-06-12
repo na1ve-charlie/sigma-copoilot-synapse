@@ -31,6 +31,7 @@ _CANONICAL_RE = re.compile(
     r"(?:; )?"
     r"(?:end=(?P<end>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}))?$"
 )
+_SELF_VALIDATING_ENTITY_TYPES = {"summary_result", "time_range", "latest_n"}
 
 
 def normalize_entity_target(entity_type: str, target: Any) -> Any:
@@ -43,6 +44,31 @@ def normalize_entity_target(entity_type: str, target: Any) -> Any:
     if entity_type == "latest_n":
         return str(_normalize_positive_int(target))
     return target
+
+
+def normalize_slot_value(entity_type: str, target: Any, slot_valid: Any) -> tuple[Any, Any]:
+    if isinstance(target, tuple) or isinstance(slot_valid, tuple):
+        targets = _as_tuple(target)
+        valids = _as_tuple(slot_valid)
+        size = max(len(targets), len(valids))
+        normalized_targets: list[Any] = []
+        normalized_valids: list[bool] = []
+        for item, valid in zip(_broadcast(targets, size), _broadcast(valids, size), strict=True):
+            normalized_target, normalized_valid = normalize_slot_value(entity_type, item, valid)
+            normalized_targets.append(normalized_target)
+            normalized_valids.append(bool(normalized_valid))
+        return tuple(normalized_targets), tuple(normalized_valids)
+
+    try:
+        normalized_target = normalize_entity_target(entity_type, target)
+    except ValueError:
+        if entity_type in _SELF_VALIDATING_ENTITY_TYPES:
+            return target, False
+        return target, bool(slot_valid)
+
+    if entity_type in _SELF_VALIDATING_ENTITY_TYPES:
+        return normalized_target, True
+    return normalized_target, bool(slot_valid)
 
 
 def normalize_time_range(target: Any) -> str:
@@ -164,4 +190,21 @@ def _now() -> datetime:
     return datetime.now().replace(microsecond=0)
 
 
-__all__ = ["normalize_entity_target", "normalize_time_range", "time_range_params"]
+def _as_tuple(value: Any) -> tuple[Any, ...]:
+    return value if isinstance(value, tuple) else (value,)
+
+
+def _broadcast(values: tuple[Any, ...], size: int) -> tuple[Any, ...]:
+    if len(values) == size:
+        return values
+    if len(values) == 1:
+        return values * size
+    raise ValueError("slot operation arrays must align")
+
+
+__all__ = [
+    "normalize_entity_target",
+    "normalize_slot_value",
+    "normalize_time_range",
+    "time_range_params",
+]

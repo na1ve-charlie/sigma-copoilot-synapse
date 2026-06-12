@@ -446,3 +446,62 @@ def test_build_maia_recognizer_from_config_requires_intent_yaml_files(
 
     with pytest.raises(FileNotFoundError, match="no Maia intent YAML files found"):
         build_maia_recognizer_from_config(config_path=config_path, llm=object())
+
+
+def test_maia_recognizer_revalidates_time_range_from_business_normalization(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from maia.recognition import normalization as normalization_module
+
+    monkeypatch.setattr(
+        normalization_module,
+        "_now",
+        lambda: normalization_module.datetime(2026, 6, 12, 0, 0, 0),
+    )
+    decision = IntentDecision(
+        verdict=RecognitionVerdict.CLEAR,
+        intents=(
+            IntentMatch(
+                name="task.nvh.selection.set_time_range",
+                score=0.95,
+                slots=IntentSlot(
+                    action="replace",
+                    entity_type="time_range",
+                    target="\u6700\u8fd11\u5468",
+                    slot_valid=False,
+                ),
+            ),
+        ),
+    )
+
+    report = run(MaiaRecognizer(FakeRecognizer(decision)).recognize("show records"))
+
+    assert report.intents[0].slots["target"] == "start=2026-06-05 00:00:00; end=2026-06-12 00:00:00"
+    assert report.intents[0].slots["slot_valid"] is True
+    assert report.slot_operations[0].target == "start=2026-06-05 00:00:00; end=2026-06-12 00:00:00"
+    assert report.slot_operations[0].slot_valid is True
+
+
+def test_maia_recognizer_revalidates_summary_result_alias_from_business_normalization() -> None:
+    decision = IntentDecision(
+        verdict=RecognitionVerdict.CLEAR,
+        intents=(
+            IntentMatch(
+                name="task.nvh.selection.set_summary_result",
+                score=0.95,
+                slots=IntentSlot(
+                    action="replace",
+                    entity_type="summary_result",
+                    target="NG",
+                    slot_valid=False,
+                ),
+            ),
+        ),
+    )
+
+    report = run(MaiaRecognizer(FakeRecognizer(decision)).recognize("show records"))
+
+    assert report.intents[0].slots["target"] == "不合格"
+    assert report.intents[0].slots["slot_valid"] is True
+    assert report.slot_operations[0].target == "不合格"
+    assert report.slot_operations[0].slot_valid is True
