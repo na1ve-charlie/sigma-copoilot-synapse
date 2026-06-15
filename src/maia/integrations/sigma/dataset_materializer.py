@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import urllib.error
+import urllib.parse
 import urllib.request
 from collections.abc import Callable, Mapping
 from datetime import datetime
@@ -61,26 +62,30 @@ class SigmaSelectionSetMaterializer(SelectionSetMaterializer):
         *,
         records: tuple[object, ...] = (),
         workspace_context: WorkspaceContext | None,
+        dataset_id: str | None = None,
+        dataset_name: str | None = None,
     ) -> str | None:
-        if not selection_set.record_ids:
+        if not selection_set.record_ids and dataset_id is None:
             return None
         lang = "zh" if workspace_context is None else workspace_context.lang
-        dataset_name = _dataset_name(selection_set)
-        dataset_id = _extract_dataset_id(
-            await self._request(
-                self._save_dataset_url,
-                {"lang": lang, "name": dataset_name},
+        target_dataset_name = dataset_name or _dataset_name(selection_set)
+        target_dataset_id = dataset_id
+        if target_dataset_id is None:
+            target_dataset_id = _extract_dataset_id(
+                await self._request(
+                    self._save_dataset_url,
+                    {"lang": lang, "name": target_dataset_name},
+                )
             )
-        )
         await self._request(
-            self._replace_records_url,
+            _url_with_lang(self._replace_records_url, lang),
             _replace_records_body(
-                dataset_id=dataset_id,
-                dataset_name=dataset_name,
+                dataset_id=target_dataset_id,
+                dataset_name=target_dataset_name,
                 records=records,
             ),
         )
-        return dataset_id
+        return target_dataset_id
 
     async def _request(self, url: str, body: dict[str, object]) -> dict[str, object]:
         status_code, text = await asyncio.to_thread(
@@ -159,6 +164,14 @@ def _coerce_numeric_text(value: str) -> int | str:
 
 def _path(value: str) -> str:
     return value if value.startswith("/") else f"/{value}"
+
+
+def _url_with_lang(url: str, lang: str) -> str:
+    query = urllib.parse.parse_qs(urllib.parse.urlsplit(url).query)
+    if "lang" in query:
+        return url
+    separator = "&" if "?" in url else "?"
+    return f"{url}{separator}lang={urllib.parse.quote(lang)}"
 
 
 def _headers(

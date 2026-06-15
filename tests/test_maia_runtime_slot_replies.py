@@ -45,8 +45,8 @@ def test_explicit_prompt_replies_apply_multiple_pending_slots() -> None:
     ]
 
 
-def test_plain_text_reply_does_not_guess_when_multiple_prompts_are_pending() -> None:
-    draft = SelectionDraft(pending_questions=("product_type", "config_version"))
+def test_plain_text_reply_does_not_guess_pending_prompt_value() -> None:
+    draft = SelectionDraft(pending_questions=("product_type",))
     original = _empty_report()
 
     report = resolve_pending_prompt_reply(draft, "A", original)

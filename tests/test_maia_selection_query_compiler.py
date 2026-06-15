@@ -56,6 +56,60 @@ def test_query_compiler_unions_paginated_branches_and_applies_sort_limit() -> No
     )
 
 
+def test_query_compiler_uses_limit_as_rows_for_latest_pushdown_query() -> None:
+    expression = {"kind": "predicate", "name": "summary_result_in", "params": {"values": ["FAIL"]}}
+    client = FakeRecordClient(
+        {
+            _key(expression): [
+                _page(["r-5", "r-4"], total=20),
+            ],
+        }
+    )
+
+    result = asyncio.run(
+        SelectionQueryCompiler(client, page_size=500).compile(
+            SelectionQuery(
+                expression=expression,
+                sort=[{"field": "tested_at", "direction": "desc"}],
+                limit=2,
+            ),
+            workspace_context=_workspace_context(),
+        )
+    )
+
+    assert result.record_ids == ("r-5", "r-4")
+    assert tuple(client.calls) == (("predicate:summary_result_in", 1, 2),)
+
+
+def test_query_compiler_paginates_until_latest_limit_is_satisfied() -> None:
+    expression = {"kind": "predicate", "name": "summary_result_in", "params": {"values": ["FAIL"]}}
+    client = FakeRecordClient(
+        {
+            _key(expression): [
+                _page(["r-5", "r-4"], total=5),
+                _page(["r-3", "r-2"], total=5),
+            ],
+        }
+    )
+
+    result = asyncio.run(
+        SelectionQueryCompiler(client, page_size=2).compile(
+            SelectionQuery(
+                expression=expression,
+                sort=[{"field": "tested_at", "direction": "desc"}],
+                limit=3,
+            ),
+            workspace_context=_workspace_context(),
+        )
+    )
+
+    assert result.record_ids == ("r-5", "r-4", "r-3")
+    assert tuple(client.calls) == (
+        ("predicate:summary_result_in", 1, 2),
+        ("predicate:summary_result_in", 2, 2),
+    )
+
+
 def test_query_compiler_intersects_positive_branch_and_excludes_not_branch() -> None:
     client = FakeRecordClient(
         {

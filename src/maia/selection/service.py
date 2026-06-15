@@ -20,6 +20,8 @@ class SelectionSetMaterializer(Protocol):
         *,
         records: tuple[Any, ...] = (),
         workspace_context: WorkspaceContext | None,
+        dataset_id: str | None = None,
+        dataset_name: str | None = None,
     ) -> str | None: ...
 
 
@@ -50,6 +52,8 @@ class SelectionSetService:
         draft: SelectionDraft,
         *,
         workspace_context: WorkspaceContext | None,
+        materialized_dataset_id: str | None = None,
+        materialized_dataset_name: str | None = None,
     ) -> SelectionSet:
         if draft.expression is None:
             raise ValueError("selection draft must include an expression")
@@ -80,9 +84,12 @@ class SelectionSetService:
                 selection_set,
                 records=compiled.records,
                 workspace_context=workspace_context,
+                dataset_id=materialized_dataset_id,
+                dataset_name=materialized_dataset_name,
             )
             if dataset_id is not None:
                 selection_set = selection_set.model_copy(update={"dataset_id": dataset_id})
+            return self._repository.save(selection_set)
         existing = self._repository.find_by_hash(selection_set.selection_hash)
         return existing or self._repository.save(selection_set)
 

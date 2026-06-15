@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 import os
 from typing import Any, Protocol
 
@@ -24,6 +25,7 @@ from maia.runtime_product_filters import (
     complete_type_system_filter,
     config_version_scope,
     distinct_values,
+    invalidate_product_filters_on_scope_change,
     is_all_product_types_request,
     product_type_scope,
     selection_expression_for_storage,
@@ -37,10 +39,17 @@ from maia.runtime_slot_replies import (
 )
 from maia.selection import InMemorySelectionSetRepository
 from maia.selection.compiler import SelectionQueryCompiler
+from maia.selection.query import SelectionQuery
 from maia.selection.service import SelectionSetMaterializer, SelectionSetService
 from maia.selection.sets import SelectionSet
 
 _SUMMARY_RESULT_RESOLVER_VALUES = (*SUMMARY_RESULT_VALUES, *(alias.upper() for alias in SUMMARY_RESULT_ALIASES))
+
+
+@dataclass(frozen=True)
+class SessionDatasetBinding:
+    dataset_id: str
+    dataset_name: str
 
 
 class Recognizer(Protocol):
@@ -60,6 +69,7 @@ class ProductCatalog(Protocol):
 class ConversationStateRepository:
     def __init__(self) -> None:
         self._items: dict[str, ConversationSelectionState] = {}
+        self._dataset_bindings: dict[str, SessionDatasetBinding] = {}
 
     def load(self, session_id: str) -> ConversationSelectionState:
         return self._items.get(session_id, ConversationSelectionState())
@@ -71,6 +81,19 @@ class ConversationStateRepository:
     ) -> ConversationSelectionState:
         self._items[session_id] = state
         return state
+
+    def load_dataset_binding(self, session_id: str) -> SessionDatasetBinding | None:
+        return self._dataset_bindings.get(session_id)
+
+    def save_dataset_binding(
+        self,
+        session_id: str,
+        binding: SessionDatasetBinding,
+    ) -> SessionDatasetBinding:
+        if not binding.dataset_id.strip() or not binding.dataset_name.strip():
+            raise ValueError("dataset binding must not contain blank values")
+        self._dataset_bindings[session_id] = binding
+        return binding
 
 
 class MaiaTurnHandler:
@@ -122,17 +145,24 @@ class MaiaTurnHandler:
         if not _is_record_search(report):
             return present_turn(ReplyPlan(message="Maia currently supports record search only."))
 
+        clear_product_type = is_all_product_types_request(
+            request.message
+        ) or prompt_replies_allow_all_products(request.prompt_replies)
         try:
             base = self._resolve_base_selection(report, state)
-            draft = self._build_draft(report, state, base)
+            draft = self._build_draft(
+                report,
+                state,
+                base,
+                clear_product_type=clear_product_type,
+            )
         except (SelectionReferenceResolutionError, ValueError) as exc:
             return present_turn(ClarifyPlan(reason="ambiguous_slots", message=str(exc)))
 
         draft, clarify = await self._complete_product_filters(
             request,
             draft,
-            allow_all_products=is_all_product_types_request(request.message)
-            or prompt_replies_allow_all_products(request.prompt_replies),
+            allow_all_products=clear_product_type,
         )
         if clarify is not None:
             draft = mark_pending_prompts(draft, clarify)
@@ -142,17 +172,51 @@ class MaiaTurnHandler:
             )
             return present_turn(clarify)
 
-        selection = await self._selection_service.create_or_derive(
-            draft.model_copy(
-                update={"expression": selection_expression_for_storage(draft.expression)}
-            ),
-            workspace_context=request.workspace_context,
+        selection = await self._materialize_selection(
+            request,
+            state,
+            draft,
+            base=base,
         )
         self._state_repository.save(
             request.session_id,
             self._selection_store.activate(state, selection.selection_set_id),
         )
         return present_turn(_reply_plan(selection))
+
+    async def _materialize_selection(
+        self,
+        request: TurnRequest,
+        state: ConversationSelectionState,
+        draft: SelectionDraft,
+        *,
+        base: SelectionSet | None,
+    ) -> SelectionSet:
+        if (
+            base is not None
+            and base.selection_set_id == state.active_selection_set_id
+            and _draft_matches_selection(draft, base)
+        ):
+            return base
+        binding = self._state_repository.load_dataset_binding(request.session_id)
+        selection = await self._selection_service.create_or_derive(
+            draft.model_copy(
+                update={"expression": selection_expression_for_storage(draft.expression)}
+            ),
+            workspace_context=request.workspace_context,
+            materialized_dataset_id=None if binding is None else binding.dataset_id,
+            materialized_dataset_name=None if binding is None else binding.dataset_name,
+        )
+        if selection.dataset_id is not None:
+            dataset_name = _dataset_name(selection) if binding is None else binding.dataset_name
+            self._state_repository.save_dataset_binding(
+                request.session_id,
+                SessionDatasetBinding(
+                    dataset_id=selection.dataset_id,
+                    dataset_name=dataset_name,
+                ),
+            )
+        return selection
 
     async def _product_configs(self, request: TurnRequest) -> tuple[ProductConfig, ...]:
         if self._product_catalog is None:
@@ -185,11 +249,7 @@ class MaiaTurnHandler:
             resolver=_TurnResolver(product_configs),
             include_diagnostics=False,
         )
-        return resolve_pending_prompt_reply(
-            state.pending_selection_draft,
-            request.message,
-            report,
-        )
+        return report
 
     def _resolve_base_selection(
         self,
@@ -208,15 +268,20 @@ class MaiaTurnHandler:
         report: RecognitionReport,
         state: ConversationSelectionState,
         base: SelectionSet | None,
+        *,
+        clear_product_type: bool,
     ) -> SelectionDraft:
-        if state.pending_selection_draft is not None:
-            resumed = self._selection_store.resume(
-                state,
-                report,
-                reducer=self._draft_reducer,
-            )
-            return resumed or state.pending_selection_draft
-        return self._draft_reducer.apply(_draft_from_selection(base), report)
+        current = (
+            state.pending_selection_draft
+            if state.pending_selection_draft is not None
+            else _draft_from_selection(base)
+        )
+        current = invalidate_product_filters_on_scope_change(
+            current,
+            report,
+            clear_product_type=clear_product_type,
+        )
+        return self._draft_reducer.apply(current, report)
 
     async def _complete_product_filters(
         self,
@@ -225,7 +290,8 @@ class MaiaTurnHandler:
         *,
         allow_all_products: bool,
     ) -> tuple[SelectionDraft, ClarifyPlan | None]:
-        product_records = await self._selection_compiler.records_for_expression(
+        product_records = await self._records_for_scope(
+            draft,
             product_type_scope(draft.expression),
             workspace_context=request.workspace_context,
         )
@@ -238,7 +304,8 @@ class MaiaTurnHandler:
         if clarify is not None or product_type is None:
             return draft, clarify
 
-        version_records = await self._selection_compiler.records_for_expression(
+        version_records = await self._records_for_scope(
+            draft,
             config_version_scope(draft.expression),
             workspace_context=request.workspace_context,
         )
@@ -251,7 +318,8 @@ class MaiaTurnHandler:
         if clarify is not None or not config_versions:
             return draft, clarify
 
-        system_records = await self._selection_compiler.records_for_expression(
+        system_records = await self._records_for_scope(
+            draft,
             type_system_scope(draft.expression),
             workspace_context=request.workspace_context,
         )
@@ -262,6 +330,27 @@ class MaiaTurnHandler:
             product_type=product_type,
             config_versions=config_versions,
         )
+
+    async def _records_for_scope(
+        self,
+        draft: SelectionDraft,
+        expression,
+        *,
+        workspace_context,
+    ):
+        scoped_draft = draft.model_copy(
+            update={"expression": selection_expression_for_storage(expression)}
+        )
+        return (
+            await self._selection_compiler.compile(
+                SelectionQuery(
+                    expression=scoped_draft.expression,
+                    sort=tuple(item.model_dump(mode="python") for item in scoped_draft.sort),
+                    limit=scoped_draft.limit,
+                ),
+                workspace_context=workspace_context,
+            )
+        ).records
 
 
 def create_maia_runtime(
@@ -337,6 +426,21 @@ def _draft_from_selection(selection: SelectionSet | None) -> SelectionDraft | No
         ),
         limit=selection.limit,
     )
+
+
+def _draft_matches_selection(draft: SelectionDraft, selection: SelectionSet) -> bool:
+    expression = selection_expression_for_storage(draft.expression)
+    draft_sort = tuple((item.field, item.direction) for item in draft.sort)
+    selection_sort = tuple((item.field, item.direction) for item in selection.sort)
+    return (
+        expression == selection.expression
+        and draft_sort == selection_sort
+        and draft.limit == selection.limit
+    )
+
+
+def _dataset_name(selection: SelectionSet) -> str:
+    return f"maia-{selection.selection_hash[:12]}"
 
 
 def _reply_plan(selection: SelectionSet) -> ReplyPlan:

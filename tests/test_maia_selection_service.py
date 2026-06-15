@@ -61,6 +61,39 @@ def test_selection_set_service_attaches_materialized_dataset_id() -> None:
     assert selection.dataset_id == "dataset-1"
 
 
+def test_selection_set_service_can_replace_existing_materialized_dataset() -> None:
+    from maia.selection.service import SelectionSetService
+
+    materializer = _Materializer("dataset-1")
+    service = SelectionSetService(
+        InMemorySelectionSetRepository(),
+        SelectionQueryCompiler(_record_client()),
+        source_version="sigma-fixture-v1",
+        materializer=materializer,
+    )
+
+    first = asyncio.run(
+        service.create_or_derive(
+            SelectionDraft(expression=_product("A")),
+            workspace_context=_workspace_context(),
+        )
+    )
+    second = asyncio.run(
+        service.create_or_derive(
+            SelectionDraft(expression=_product("B")),
+            workspace_context=_workspace_context(),
+            materialized_dataset_id=first.dataset_id,
+            materialized_dataset_name="maia-session",
+        )
+    )
+
+    assert second.dataset_id == "dataset-1"
+    assert materializer.calls == [
+        (None, None, ("r-1", "r-2", "r-3")),
+        ("dataset-1", "maia-session", ("r-4", "r-5")),
+    ]
+
+
 @pytest.mark.parametrize(
     ("draft", "expected_ids", "expected_operation"),
     [
@@ -175,10 +208,22 @@ class _RecordClient:
 class _Materializer:
     def __init__(self, dataset_id: str) -> None:
         self._dataset_id = dataset_id
+        self.calls: list[tuple[str | None, str | None, tuple[str, ...]]] = []
 
-    async def materialize(self, selection_set, *, records=(), workspace_context) -> str:
-        del selection_set, records, workspace_context
-        return self._dataset_id
+    async def materialize(
+        self,
+        selection_set,
+        *,
+        records=(),
+        workspace_context,
+        dataset_id=None,
+        dataset_name=None,
+    ) -> str:
+        del selection_set, workspace_context
+        self.calls.append(
+            (dataset_id, dataset_name, tuple(record.record_id for record in records))
+        )
+        return dataset_id or self._dataset_id
 
 
 def _record_client() -> _RecordClient:

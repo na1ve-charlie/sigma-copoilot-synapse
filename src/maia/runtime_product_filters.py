@@ -15,6 +15,9 @@ _PRODUCT_PREDICATES = {
     "config_version_in": "config_version",
     "type_system_in": "type_system",
 }
+_PRODUCT_FILTER_SLOTS = frozenset({"product_type", "config_version", "type_system"})
+_DERIVED_PRODUCT_FILTER_SLOTS = frozenset({"config_version", "type_system"})
+_SCOPE_NEUTRAL_SLOTS = frozenset({"filter_operator", "selection_reference"})
 _ALL_PRODUCT_TYPE_ALIASES = frozenset(
     {
         "__ALL_PRODUCTS__",
@@ -23,6 +26,8 @@ _ALL_PRODUCT_TYPE_ALIASES = frozenset(
         "\u4ea7\u54c1\u4e0d\u9650",
         "\u578b\u53f7\u4e0d\u9650",
         "\u5168\u90e8\u578b\u53f7",
+        "\u6240\u6709\u578b\u53f7",
+        "\u4e0d\u9650\u578b\u53f7",
     }
 )
 _PRODUCT_TYPE_CANDIDATE_LIMIT = 5
@@ -66,6 +71,35 @@ def config_version_scope(expression: FilterExpression | None) -> FilterExpressio
 
 def type_system_scope(expression: FilterExpression | None) -> FilterExpression | None:
     return _strip_scope_filters(expression, excluded_slots={"type_system"})
+
+
+def invalidate_product_filters_on_scope_change(
+    draft: SelectionDraft | None,
+    report: RecognitionReport,
+    *,
+    clear_product_type: bool = False,
+) -> SelectionDraft | None:
+    if draft is None or (not clear_product_type and not _changes_record_scope(report)):
+        return draft
+    excluded_slots = (
+        _PRODUCT_FILTER_SLOTS if clear_product_type else _DERIVED_PRODUCT_FILTER_SLOTS
+    )
+    expression = _strip_scope_filters(
+        draft.expression,
+        excluded_slots=set(excluded_slots),
+    )
+    pending_questions = tuple(
+        question for question in draft.pending_questions if question not in excluded_slots
+    )
+    if expression == draft.expression and pending_questions == draft.pending_questions:
+        return draft
+    return draft.model_copy(
+        update={
+            "expression": expression,
+            "pending_questions": pending_questions,
+            "revision": draft.revision + 1,
+        }
+    )
 
 
 def complete_product_type_filter(
@@ -115,9 +149,17 @@ def complete_config_version_filter(
                 config_version=versions[0],
             )
             return draft, None, selected_versions
-        return draft, _clarify_missing("config_version", versions), ()
+        return draft, _clarify_missing(
+            "config_version",
+            versions,
+            scope=_slot_scope(product_type=product_type),
+        ), ()
     if versions and not set(selected_versions).issubset(versions):
-        return draft, _clarify_invalid("config_version", versions), ()
+        return draft, _clarify_invalid(
+            "config_version",
+            versions,
+            scope=_slot_scope(product_type=product_type),
+        ), ()
     return draft, None, selected_versions
 
 
@@ -138,7 +180,14 @@ def complete_type_system_filter(
     selected_systems = _selected_values(draft.expression, "type_system")
     if not selected_systems:
         if len(systems) > 1:
-            return draft, _clarify_missing("type_system", systems)
+            return draft, _clarify_missing(
+                "type_system",
+                systems,
+                scope=_slot_scope(
+                    product_type=product_type,
+                    config_versions=config_versions,
+                ),
+            )
         if len(systems) == 1:
             draft = _apply_auto_slots(
                 draft,
@@ -147,7 +196,14 @@ def complete_type_system_filter(
             )
         return draft, None
     if systems and not set(selected_systems).issubset(systems):
-        return draft, _clarify_invalid("type_system", systems)
+        return draft, _clarify_invalid(
+            "type_system",
+            systems,
+            scope=_slot_scope(
+                product_type=product_type,
+                config_versions=config_versions,
+            ),
+        )
     return draft, None
 
 
@@ -156,7 +212,19 @@ def distinct_values(values: Iterable[str | None]) -> tuple[str, ...]:
 
 
 def is_all_product_types_request(message: str) -> bool:
-    return message.strip() in _ALL_PRODUCT_TYPE_ALIASES
+    text = message.strip()
+    return text in _ALL_PRODUCT_TYPE_ALIASES or any(
+        alias in text for alias in _ALL_PRODUCT_TYPE_ALIASES if alias != ALL_PRODUCTS_VALUE
+    )
+
+
+def _changes_record_scope(report: RecognitionReport) -> bool:
+    for operation in report.slot_operations:
+        entity_type = operation.entity_type
+        if entity_type in _PRODUCT_FILTER_SLOTS or entity_type in _SCOPE_NEUTRAL_SLOTS:
+            continue
+        return True
+    return False
 
 
 def _single_selected_value(expression: FilterExpression, entity_type: str) -> str | None:
@@ -241,13 +309,18 @@ def _apply_auto_slots(
     )
 
 
-def _clarify_missing(slot: str, values: tuple[str, ...]) -> ClarifyPlan:
+def _clarify_missing(
+    slot: str,
+    values: tuple[str, ...],
+    *,
+    scope: str | None = None,
+) -> ClarifyPlan:
     label = _slot_label(slot)
     return ClarifyPlan(
         reason="missing_slots",
-        message=f"\u8bf7\u9009\u62e9{label}\u3002",
+        message=_slot_plan_message(label, scope=scope, valid=True),
         missing_slots=[slot],
-        prompts=[_slot_prompt(slot, values)],
+        prompts=[_slot_prompt(slot, values, scope=scope)],
         suggestions=list(values),
     )
 
@@ -280,13 +353,18 @@ def _clarify_missing_product_type(product_types: tuple[str, ...]) -> ClarifyPlan
     )
 
 
-def _clarify_invalid(slot: str, values: tuple[str, ...]) -> ClarifyPlan:
+def _clarify_invalid(
+    slot: str,
+    values: tuple[str, ...],
+    *,
+    scope: str | None = None,
+) -> ClarifyPlan:
     label = _slot_label(slot)
     return ClarifyPlan(
         reason="invalid_slots",
-        message=f"\u8bf7\u9009\u62e9\u6709\u6548\u7684{label}\u3002",
+        message=_slot_plan_message(label, scope=scope, valid=False),
         invalid_slots=[slot],
-        prompts=[_slot_prompt(slot, values)],
+        prompts=[_slot_prompt(slot, values, scope=scope)],
         suggestions=list(values),
     )
 
@@ -334,17 +412,46 @@ def _product_type_context_message(product_types: tuple[str, ...]) -> str:
     )
 
 
-def _slot_prompt(slot: str, values: tuple[str, ...]) -> Prompt:
+def _slot_prompt(
+    slot: str,
+    values: tuple[str, ...],
+    *,
+    scope: str | None = None,
+) -> Prompt:
     label = _slot_label(slot)
     return Prompt(
         id=slot,
         target="slot",
         label=slot.replace("_", " "),
-        message=f"\u9009\u62e9{label}\u3002",
+        message=_slot_prompt_message(label, scope=scope),
         required=True,
         input_type="multi_select" if slot in {"config_version", "type_system"} else "single_select",
         candidates=[PromptCandidate(value=value, label=value) for value in values],
     )
+
+
+def _slot_plan_message(label: str, *, scope: str | None, valid: bool) -> str:
+    prefix = f"\u5f53\u524d\u5df2\u9009\u62e9{scope}\uff0c" if scope else ""
+    qualifier = "" if valid else "\u6709\u6548\u7684"
+    return f"{prefix}\u8bf7\u9009\u62e9{qualifier}{label}\u3002"
+
+
+def _slot_prompt_message(label: str, *, scope: str | None) -> str:
+    if scope:
+        return f"\u4e3a{scope} \u9009\u62e9{label}\u3002"
+    return f"\u9009\u62e9{label}\u3002"
+
+
+def _slot_scope(
+    *,
+    product_type: str,
+    config_versions: tuple[str, ...] = (),
+) -> str:
+    parts = [f"\u4ea7\u54c1\u578b\u53f7 {product_type}"]
+    if config_versions:
+        versions = "\u3001".join(config_versions)
+        parts.append(f"\u914d\u7f6e\u5e8f\u53f7 {versions}")
+    return "\u3001".join(parts)
 
 
 def _slot_label(slot: str) -> str:
@@ -389,6 +496,7 @@ __all__ = [
     "complete_type_system_filter",
     "config_version_scope",
     "distinct_values",
+    "invalidate_product_filters_on_scope_change",
     "is_all_product_types_request",
     "product_type_scope",
     "selection_expression_for_storage",

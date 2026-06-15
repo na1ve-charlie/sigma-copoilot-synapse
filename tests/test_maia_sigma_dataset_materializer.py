@@ -48,7 +48,7 @@ def test_dataset_materializer_uses_short_hash_name_and_result_list_payload() -> 
         "lang": "zh",
         "name": f"maia-{selection.selection_hash[:12]}",
     }
-    assert calls[1][0] == "http://sigma.local/api/storage/dataGroup/saveSelectedResult"
+    assert calls[1][0] == "http://sigma.local/api/storage/dataGroup/saveSelectedResult?lang=zh"
     assert calls[1][2] == {
         "id": 1172,
         "info": None,
@@ -103,6 +103,47 @@ def test_dataset_materializer_skips_save_selected_result_when_selection_is_empty
 
     assert dataset_id is None
     assert calls == []
+
+
+def test_dataset_materializer_replaces_existing_dataset_when_selection_is_empty() -> None:
+    calls: list[tuple[str, dict[str, object]]] = []
+
+    def transport(
+        url: str,
+        headers: dict[str, str],
+        body: bytes | None,
+        timeout: float,
+    ) -> tuple[int, str]:
+        del headers, timeout
+        calls.append((url, json.loads((body or b"{}").decode("utf-8"))))
+        return 200, json.dumps({"code": 200, "data": True})
+
+    dataset_id = asyncio.run(
+        SigmaSelectionSetMaterializer(
+            base_url="http://sigma.local",
+            transport=transport,
+        ).materialize(
+            _selection_set(record_ids=()),
+            records=(),
+            workspace_context=None,
+            dataset_id="1172",
+            dataset_name="maia-session",
+        )
+    )
+
+    assert dataset_id == "1172"
+    assert calls == [
+        (
+            "http://sigma.local/api/storage/dataGroup/saveSelectedResult?lang=zh",
+            {
+                "id": 1172,
+                "info": None,
+                "name": "maia-session",
+                "resultList": [],
+                "copyStatus": False,
+            },
+        )
+    ]
 
 
 def _selection_set(*, record_ids: tuple[str, ...] = ("46700", "46699")) -> SelectionSet:

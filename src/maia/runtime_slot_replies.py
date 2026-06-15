@@ -61,19 +61,7 @@ def resolve_pending_prompt_reply(
 ) -> RecognitionReport:
     if prompt_replies:
         return _report_from_prompt_replies(draft, message, prompt_replies)
-
-    slots = _pending_slots(draft)
-    if len(slots) != 1:
-        return report
-    slot = slots[0]
-    target = message.strip()
-    if not target or (slot == "product_type" and target in _ALL_PRODUCTS_ALIASES):
-        return report
-    return _reply_report(
-        message,
-        _slot_operation(slot, (target,)),
-        action_intents=tuple(report.action_intents),
-    )
+    return report
 
 
 def _report_from_prompt_replies(

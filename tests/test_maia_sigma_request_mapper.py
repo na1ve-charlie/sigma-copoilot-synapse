@@ -287,6 +287,53 @@ def test_request_mapper_outputs_canonical_summary_result_lists() -> None:
     assert multi.to_http_params()["sumList"] == "次异常,不合格"
     assert single.to_http_params()["sumList"] == "检测失败"
 
+def test_request_mapper_keeps_product_type_after_scope_rebuild() -> None:
+    mapper = LegacyRecordRequestMapper()
+
+    request = mapper.map(
+        {
+            "kind": "all_of",
+            "expressions": [
+                {
+                    "kind": "predicate",
+                    "name": "product_type_in",
+                    "params": {"values": ["测试"]},
+                },
+                {
+                    "kind": "predicate",
+                    "name": "summary_result_in",
+                    "params": {"values": ["合格"]},
+                },
+            ],
+        },
+        workspace_context=None,
+    )
+
+    params = request.to_http_params()
+    assert params["type"] == "测试"
+    assert params["sumList"] == "合格"
+    assert "versionList" not in params
+    assert "systemNoList" not in params
+
+
+def test_request_mapper_omits_product_params_after_all_products_scope_rebuild() -> None:
+    mapper = LegacyRecordRequestMapper()
+
+    request = mapper.map(
+        {
+            "kind": "predicate",
+            "name": "summary_result_in",
+            "params": {"values": ["合格"]},
+        },
+        workspace_context=None,
+    )
+
+    params = request.to_http_params()
+    assert params["sumList"] == "合格"
+    assert "type" not in params
+    assert "versionList" not in params
+    assert "systemNoList" not in params
+
 
 def _workspace_context() -> WorkspaceContext:
     return WorkspaceContext.model_validate(

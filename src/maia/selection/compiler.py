@@ -48,10 +48,19 @@ class SelectionQueryCompiler:
         workspace_context: WorkspaceContext | None,
     ) -> CompiledSelectionQuery:
         parsed = parse_selection_query(query)
-        records = await self.records_for_expression(
-            parsed.expression,
-            workspace_context=workspace_context,
-        )
+        fetch_limit = _pushdown_fetch_limit(parsed)
+        can_pushdown, pushdown_expression = _limited_pushdown_expression(parsed.expression)
+        if fetch_limit is not None and can_pushdown:
+            records = await self._fetch_records(
+                pushdown_expression,
+                workspace_context=workspace_context,
+                max_records=fetch_limit,
+            )
+        else:
+            records = await self.records_for_expression(
+                parsed.expression,
+                workspace_context=workspace_context,
+            )
         ordered = _sort_records(records, parsed.sort)
         limited = ordered if parsed.limit is None else ordered[: parsed.limit]
         return CompiledSelectionQuery(query=parsed, records=limited)
@@ -144,18 +153,25 @@ class SelectionQueryCompiler:
         expression: FilterExpression | None,
         *,
         workspace_context: WorkspaceContext | None,
+        max_records: int | None = None,
     ) -> tuple[TestRecordSummary, ...]:
         records: tuple[TestRecordSummary, ...] = ()
         page = 1
+        rows = _rows_for_limit(self._page_size, max_records)
         while True:
             result = await self._record_client.list_records(
                 expression,
                 workspace_context=workspace_context,
                 page=page,
-                rows=self._page_size,
+                rows=rows,
             )
             records = _union_records(records, result.records)
-            if not result.records or len(records) >= result.total or result.returned_count < self._page_size:
+            if (
+                not result.records
+                or (max_records is not None and len(records) >= max_records)
+                or len(records) >= result.total
+                or result.returned_count < rows
+            ):
                 return records
             page += 1
 
@@ -180,6 +196,30 @@ def _is_pushdown_compatible(expression: FilterExpression) -> bool:
     if isinstance(expression, AllOf):
         return all(_is_pushdown_compatible(child) for child in expression.expressions)
     return False
+
+
+def _pushdown_fetch_limit(query: SelectionQuery) -> int | None:
+    if query.limit is None or len(query.sort) != 1:
+        return None
+    sort = query.sort[0]
+    if sort.field != "tested_at" or sort.direction != "desc":
+        return None
+    return query.limit
+
+
+def _limited_pushdown_expression(expression: FilterExpression) -> tuple[bool, FilterExpression | None]:
+    parsed = parse_filter_expression(expression)
+    if isinstance(parsed, Predicate) and parsed.name == ALL_RECORDS_PREDICATE_NAME:
+        return True, None
+    if _is_pushdown_compatible(parsed):
+        return True, parsed
+    return False, None
+
+
+def _rows_for_limit(page_size: int, max_records: int | None) -> int:
+    if max_records is None or max_records > page_size:
+        return page_size
+    return max_records
 
 
 def _union_records(
