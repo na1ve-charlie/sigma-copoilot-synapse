@@ -140,7 +140,7 @@ class LegacyRecordRequestMapper:
             for predicate in _conjunctive_predicates(parse_filter_expression(expression)):
                 _apply_predicate(updates, predicate)
         return LegacyRecordRequestParams(
-            data_group_id=None if workspace_context is None else workspace_context.dataset_id,
+            data_group_id=None,
             lang="zh" if workspace_context is None else workspace_context.lang,
             page=self._default_page if page is None else page,
             rows=self._default_rows if rows is None else rows,

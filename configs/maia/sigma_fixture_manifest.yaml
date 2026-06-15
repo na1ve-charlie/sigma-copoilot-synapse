@@ -8,7 +8,6 @@ fixtures:
     workspace_context_path: sigma/offline_1152.workspace_context.json
     snapshot_path: sigma/offline_1152.snapshot.json
     invariants:
-      dataset_id: "1152"
       domains: [ONE_D, TWO_D_CEP, TWO_D_FS, TWO_D_OC]
       sensors: [Vib1, sensor01, sensor02]
       test_segments: [1500rpm, Spd-rCH, Spd-rDL]

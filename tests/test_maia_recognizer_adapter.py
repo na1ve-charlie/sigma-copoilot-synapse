@@ -505,3 +505,28 @@ def test_maia_recognizer_revalidates_summary_result_alias_from_business_normaliz
     assert report.intents[0].slots["slot_valid"] is True
     assert report.slot_operations[0].target == "不合格"
     assert report.slot_operations[0].slot_valid is True
+
+
+def test_maia_recognizer_fills_summary_result_from_message_and_drops_invalid_indicator() -> None:
+    decision = IntentDecision(
+        verdict=RecognitionVerdict.CLEAR,
+        intents=(
+            IntentMatch(
+                name="task.nvh.selection.set_indicator",
+                score=0.95,
+                slots=IntentSlot(
+                    action="replace",
+                    entity_type="indicator",
+                    target="界限值",
+                    slot_valid=False,
+                ),
+            ),
+        ),
+    )
+
+    report = run(MaiaRecognizer(FakeRecognizer(decision)).recognize("我想查看界限值未设置的测试记录"))
+
+    assert [operation.entity_type for operation in report.slot_operations] == ["summary_result"]
+    assert report.slot_operations[0].action == "replace"
+    assert report.slot_operations[0].target == "未设置界限值"
+    assert report.slot_operations[0].slot_valid is True

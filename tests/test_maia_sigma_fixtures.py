@@ -31,10 +31,9 @@ def test_sigma_fixture_workspace_context_and_snapshot_stay_in_sync() -> None:
     snapshot = _load_json(MANIFEST_PATH.parent / fixture["snapshot_path"])
     invariants = fixture["invariants"]
 
-    assert workspace_context["dataset_id"] == invariants["dataset_id"] == "1152"
-    assert workspace_context["lang"] == snapshot["workspace_context"]["lang"] == "zh"
+    assert workspace_context == {"lang": "zh"}
+    assert workspace_context == snapshot["workspace_context"]
     assert snapshot["id"] == fixture["id"]
-    assert snapshot["workspace_context"]["dataset_id"] == workspace_context["dataset_id"]
     assert sorted({row["domain"] for row in snapshot["rows"]}) == invariants["domains"]
     assert sorted({row["sensor"] for row in snapshot["rows"]}) == invariants["sensors"]
     assert sorted({row["test_segment"] for row in snapshot["rows"]}) == invariants[

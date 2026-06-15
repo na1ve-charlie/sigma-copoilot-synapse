@@ -152,6 +152,43 @@ def test_response_mapper_accepts_rows_alias_from_sigma_envelope() -> None:
     assert page.records[0].summary_result == "不合格"
 
 
+def test_response_mapper_ignores_blank_manual_tags_from_legacy_rows() -> None:
+    mapper = LegacyRecordResponseMapper()
+
+    page = mapper.map(
+        {
+            "code": 200,
+            "msg": "ok",
+            "data": {
+                "total": 2,
+                "rows": [
+                    {
+                        "id": 46142,
+                        "testTime": "2026-06-11 19:38:34",
+                        "type": "fixture_type_2",
+                        "systemNo": "7s-SNF1001",
+                        "serialNo": "SN-003",
+                        "sum": "FAIL",
+                        "manualTagging": "",
+                    },
+                    {
+                        "id": 46143,
+                        "testTime": "2026-06-11 19:38:35",
+                        "type": "fixture_type_2",
+                        "systemNo": "7s-SNF1001",
+                        "serialNo": "SN-004",
+                        "sum": "FAIL",
+                        "manualTags": [" ", "复测", None, "复测"],
+                    },
+                ],
+            },
+        }
+    )
+
+    assert page.records[0].manual_tags == ()
+    assert page.records[1].manual_tags == ("复测",)
+
+
 def test_response_mapper_surfaces_legacy_backend_failures() -> None:
     mapper = LegacyRecordResponseMapper()
 

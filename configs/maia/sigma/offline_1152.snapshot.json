@@ -2,12 +2,6 @@
   "id": "offline_1152",
   "name": "offline / dataset 1152",
   "workspace_context": {
-    "workspace_session_id": "ws-1152",
-    "data_load_mode": "dataset",
-    "dataset_id": "1152",
-    "dataset_name": "MAXV 1152",
-    "dataset_origin": "selected_dataset",
-    "dataset_version": 3,
     "lang": "zh"
   },
   "rows": [

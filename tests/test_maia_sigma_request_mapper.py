@@ -41,7 +41,6 @@ def test_request_mapper_projects_dataset_scope_page_defaults_and_supported_filte
 
     assert isinstance(request, LegacyRecordRequestParams)
     assert request.to_http_params() == {
-        "dataGroupId": "1152",
         "lang": "zh",
         "page": 1,
         "rows": 500,
@@ -79,7 +78,6 @@ def test_request_mapper_normalizes_boolean_and_text_qualifiers() -> None:
     )
 
     assert request.to_http_params() == {
-        "dataGroupId": "1152",
         "lang": "zh",
         "page": 2,
         "rows": 100,
@@ -163,7 +161,6 @@ def test_request_mapper_allows_dataset_scoped_query_without_extra_predicates() -
     )
 
     assert request.to_http_params() == {
-        "dataGroupId": "1152",
         "lang": "zh",
         "page": 3,
         "rows": 10,
@@ -265,6 +262,30 @@ def test_request_mapper_supports_single_sided_tested_at_between() -> None:
         "onlyRepeatSerial": "false",
         "endTime": "2026-06-12 00:00:00",
     }
+
+
+def test_request_mapper_outputs_canonical_summary_result_lists() -> None:
+    mapper = LegacyRecordRequestMapper()
+
+    multi = mapper.map(
+        {
+            "kind": "predicate",
+            "name": "summary_result_in",
+            "params": {"values": ["次异常", "不合格"]},
+        },
+        workspace_context=None,
+    )
+    single = mapper.map(
+        {
+            "kind": "predicate",
+            "name": "summary_result_in",
+            "params": {"values": ["检测失败"]},
+        },
+        workspace_context=None,
+    )
+
+    assert multi.to_http_params()["sumList"] == "次异常,不合格"
+    assert single.to_http_params()["sumList"] == "检测失败"
 
 
 def _workspace_context() -> WorkspaceContext:

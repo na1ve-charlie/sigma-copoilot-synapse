@@ -42,22 +42,18 @@ class ProductContext(ContractModel):
 
 
 class WorkspaceContext(ContractModel):
-    workspace_session_id: str | None = None
-    data_load_mode: Literal["dataset", "filter"] | None = None
-    dataset_id: str | None = None
-    dataset_name: str | None = None
-    dataset_origin: Literal["selected_dataset", "copilot_filter"] | None = None
-    dataset_version: int | None = None
-    filter_hash: str | None = None
-    products: list[ProductContext] = Field(default_factory=list)
-    test_time: TimeRange | None = None
-    type_systems: list[TypeSystemContext] = Field(default_factory=list)
     lang: str = "zh"
+
+
+class PromptReply(ContractModel):
+    prompt_id: str
+    value: Any
 
 
 class TurnRequest(ContractModel):
     session_id: str
     message: str
+    prompt_replies: list[PromptReply] = Field(default_factory=list, exclude=True)
     workspace_context: WorkspaceContext | None = None
 
 
@@ -185,6 +181,7 @@ __all__ = [
     "ProductContext",
     "Prompt",
     "PromptCandidate",
+    "PromptReply",
     "ReplyPlan",
     "RiskLevel",
     "SlotStateChange",

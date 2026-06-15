@@ -179,7 +179,7 @@ def _text_tuple(value: object, *, field_name: str) -> tuple[str, ...]:
     for item in items:
         text = _optional_text(item)
         if text is None:
-            raise ValueError(f"{field_name} must not contain blank values")
+            continue
         if text not in normalized:
             normalized.append(text)
     return tuple(normalized)

@@ -85,7 +85,6 @@ def test_test_record_client_calls_legacy_endpoint_with_mapped_query_params() -> 
     assert captured["headers"] == {"Token": "secret-token"}
     assert captured["timeout"] == 7.5
     assert captured["params"] == {
-        "dataGroupId": "1152",
         "lang": "zh",
         "page": 3,
         "rows": 50,
@@ -151,7 +150,7 @@ def test_test_record_client_wraps_transport_errors_with_request_context() -> Non
 
     assert raised.value.operation == "list_test_records"
     assert raised.value.path == "/api/storage/singleStationReport/listReportByMulti"
-    assert raised.value.request_params["dataGroupId"] == "1152"
+    assert "dataGroupId" not in raised.value.request_params
     assert isinstance(raised.value.__cause__, TimeoutError)
 
 
@@ -355,7 +354,10 @@ def test_test_record_client_wraps_legacy_payload_mapping_failures() -> None:
             workspace_context=_workspace_context(),
         )
 
-    with pytest.raises(TestRecordClientError, match="response mapping failed") as raised:
+    with pytest.raises(
+        TestRecordClientError,
+        match="response mapping failed: record id is required",
+    ) as raised:
         asyncio.run(exercise())
 
     assert raised.value.request_params["sumList"] == "FAIL"

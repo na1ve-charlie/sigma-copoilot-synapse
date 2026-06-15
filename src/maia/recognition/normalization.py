@@ -7,7 +7,7 @@ from typing import Any
 
 _TIME_FORMAT = "%Y-%m-%d %H:%M:%S"
 _DATE_FORMAT = "%Y-%m-%d"
-_CANONICAL_SUMMARY_RESULTS = (
+SUMMARY_RESULT_VALUES = (
     "不合格",
     "合格",
     "未设置界限值",
@@ -15,12 +15,9 @@ _CANONICAL_SUMMARY_RESULTS = (
     "次异常",
     "检测失败",
 )
-_SUMMARY_RESULT_ALIASES = {
+SUMMARY_RESULT_ALIASES = {
     "ng": "不合格",
-    "fail": "不合格",
-    "不合格品": "不合格",
     "ok": "合格",
-    "pass": "合格",
 }
 _RANGE_SPLIT_RE = re.compile(r"\s*(?:到|至)\s*")
 _DATETIME_RE = re.compile(r"^\d{4}-\d{2}-\d{2}(?: \d{2}:\d{2}(?::\d{2})?)?$")
@@ -113,8 +110,8 @@ def _normalize_summary_result(target: Any) -> str:
     value = str(target).strip()
     if not value:
         raise ValueError("summary_result target must not be blank")
-    canonical = _SUMMARY_RESULT_ALIASES.get(value.casefold(), value)
-    if canonical not in _CANONICAL_SUMMARY_RESULTS:
+    canonical = SUMMARY_RESULT_ALIASES.get(value.casefold(), value)
+    if canonical not in SUMMARY_RESULT_VALUES:
         raise ValueError(f"unsupported summary_result target: {target}")
     return canonical
 
@@ -206,5 +203,7 @@ __all__ = [
     "normalize_entity_target",
     "normalize_slot_value",
     "normalize_time_range",
+    "SUMMARY_RESULT_ALIASES",
+    "SUMMARY_RESULT_VALUES",
     "time_range_params",
 ]

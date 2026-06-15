@@ -22,6 +22,7 @@ from maia.recognition.config import (
 )
 from maia.recognition.normalization import normalize_slot_value
 from maia.recognition.report import RecognitionReport
+from maia.recognition.summary_result_filling import fill_summary_result_slots
 from maia.recognition.tree_prompt_loader import load_tree_prompt_config
 
 
@@ -50,7 +51,7 @@ class MaiaRecognizer:
     ) -> RecognitionReport:
         decision = await self._recognizer.recognize(message, resolver=resolver)
         payload = decision.to_dict()
-        return RecognitionReport(
+        report = RecognitionReport(
             message=message,
             verdict=_verdict_value(decision),
             requires_confirmation=bool(decision.requires_confirmation),
@@ -66,6 +67,7 @@ class MaiaRecognizer:
             ),
             diagnostics=payload.get("diagnostics", {}) if include_diagnostics else {},
         )
+        return fill_summary_result_slots(report)
 
 
 def build_maia_recognizer_from_config(

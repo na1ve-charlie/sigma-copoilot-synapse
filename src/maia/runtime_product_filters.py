@@ -100,25 +100,25 @@ def complete_config_version_filter(
     *,
     reducer: SelectionDraftReducer,
     product_type: str,
-) -> tuple[SelectionDraft, ClarifyPlan | None, str | None]:
+) -> tuple[SelectionDraft, ClarifyPlan | None, tuple[str, ...]]:
     scoped_records = _filter_records(records, product_type=product_type)
     versions = _ordered_record_values(scoped_records, "config_version")
-    selected_version = _single_selected_value(draft.expression, "config_version")
-    if selected_version is None:
+    selected_versions = _selected_values(draft.expression, "config_version")
+    if not selected_versions:
         if not versions:
-            return draft, None, None
+            return draft, None, ()
         if len(versions) == 1:
-            selected_version = versions[0]
+            selected_versions = (versions[0],)
             draft = _apply_auto_slots(
                 draft,
                 reducer=reducer,
-                config_version=selected_version,
+                config_version=versions[0],
             )
-            return draft, None, selected_version
-        return draft, _clarify_missing("config_version", versions), None
-    if versions and selected_version not in versions:
-        return draft, _clarify_invalid("config_version", versions), None
-    return draft, None, selected_version
+            return draft, None, selected_versions
+        return draft, _clarify_missing("config_version", versions), ()
+    if versions and not set(selected_versions).issubset(versions):
+        return draft, _clarify_invalid("config_version", versions), ()
+    return draft, None, selected_versions
 
 
 def complete_type_system_filter(
@@ -127,16 +127,16 @@ def complete_type_system_filter(
     *,
     reducer: SelectionDraftReducer,
     product_type: str,
-    config_version: str,
+    config_versions: tuple[str, ...],
 ) -> tuple[SelectionDraft, ClarifyPlan | None]:
     scoped_records = _filter_records(
         records,
         product_type=product_type,
-        config_version=config_version,
+        config_versions=config_versions,
     )
     systems = _ordered_record_values(scoped_records, "system_no")
-    selected_system = _single_selected_value(draft.expression, "type_system")
-    if selected_system is None:
+    selected_systems = _selected_values(draft.expression, "type_system")
+    if not selected_systems:
         if len(systems) > 1:
             return draft, _clarify_missing("type_system", systems)
         if len(systems) == 1:
@@ -146,7 +146,7 @@ def complete_type_system_filter(
                 type_system=systems[0],
             )
         return draft, None
-    if systems and selected_system not in systems:
+    if systems and not set(selected_systems).issubset(systems):
         return draft, _clarify_invalid("type_system", systems)
     return draft, None
 
@@ -254,18 +254,7 @@ def _clarify_missing(slot: str, values: tuple[str, ...]) -> ClarifyPlan:
 
 def _clarify_missing_product_type(product_types: tuple[str, ...]) -> ClarifyPlan:
     values = product_types[:_PRODUCT_TYPE_CANDIDATE_LIMIT]
-    preview = "\u3001".join(values[:3])
-    count = len(product_types)
-    if count > len(values[:3]):
-        message = (
-            f"\u5f53\u524d\u7b5b\u9009\u7684\u6d4b\u8bd5\u8bb0\u5f55\u6db5\u76d6\u4e86{preview}"
-            f"\u7b49 {count} \u4e2a\u4ea7\u54c1\u578b\u53f7\uff0c\u8bf7\u9009\u62e9\u4f60\u8981\u89c2\u5bdf\u7684\u4ea7\u54c1\u578b\u53f7\u3002"
-        )
-    else:
-        message = (
-            f"\u5f53\u524d\u7b5b\u9009\u7684\u6d4b\u8bd5\u8bb0\u5f55\u6db5\u76d6\u4e86{preview}"
-            f"\uff0c\u8bf7\u9009\u62e9\u4f60\u8981\u89c2\u5bdf\u7684\u4ea7\u54c1\u578b\u53f7\u3002"
-        )
+    message = _product_type_context_message(product_types)
     prompt = Prompt(
         id="product_type",
         target="slot",
@@ -304,24 +293,44 @@ def _clarify_invalid(slot: str, values: tuple[str, ...]) -> ClarifyPlan:
 
 def _clarify_invalid_product_type(product_types: tuple[str, ...]) -> ClarifyPlan:
     values = product_types[:_PRODUCT_TYPE_CANDIDATE_LIMIT]
-    prompt = _slot_prompt("product_type", values).model_copy(
-        update={
-            "candidates": [
-                *(PromptCandidate(value=value, label=value) for value in values),
-                PromptCandidate(
-                    value=ALL_PRODUCTS_VALUE,
-                    label="\u5168\u90e8\u4ea7\u54c1",
-                    description="\u4e0d\u4f20 type \u53c2\u6570\uff0c\u6309\u5176\u4ed6\u7b5b\u9009\u6761\u4ef6\u7ee7\u7eed\u3002",
-                ),
-            ]
-        }
+    prompt = Prompt(
+        id="product_type",
+        target="slot",
+        label="product type",
+        message="\u9009\u62e9\u4ea7\u54c1\u578b\u53f7\u3002",
+        required=True,
+        input_type="single_select",
+        candidates=[
+            *(PromptCandidate(value=value, label=value) for value in values),
+            PromptCandidate(
+                value=ALL_PRODUCTS_VALUE,
+                label="\u5168\u90e8\u4ea7\u54c1",
+                description="\u4e0d\u4f20 type \u53c2\u6570\uff0c\u6309\u5176\u4ed6\u7b5b\u9009\u6761\u4ef6\u7ee7\u7eed\u3002",
+            ),
+        ],
     )
     return ClarifyPlan(
         reason="invalid_slots",
-        message="\u8bf7\u9009\u62e9\u6709\u6548\u7684\u4ea7\u54c1\u578b\u53f7\u3002",
+        message=_product_type_context_message(product_types),
         invalid_slots=["product_type"],
         prompts=[prompt],
         suggestions=[*values, "\u5168\u90e8\u4ea7\u54c1"],
+    )
+
+
+def _product_type_context_message(product_types: tuple[str, ...]) -> str:
+    values = product_types[:_PRODUCT_TYPE_CANDIDATE_LIMIT]
+    preview = "\u3001".join(values[:3])
+    count = len(product_types)
+    if count > len(values[:3]):
+        return (
+            f"\u5f53\u524d\u7b5b\u9009\u7684\u6d4b\u8bd5\u8bb0\u5f55\u6309\u6d4b\u8bd5\u65f6\u95f4\u5012\u5e8f"
+            f"\u6db5\u76d6\u4e86{preview}\u7b49 {count} \u4e2a\u4ea7\u54c1\u578b\u53f7\uff0c"
+            f"\u8bf7\u9009\u62e9\u4f60\u8981\u89c2\u5bdf\u7684\u4ea7\u54c1\u578b\u53f7\u3002"
+        )
+    return (
+        f"\u5f53\u524d\u7b5b\u9009\u7684\u6d4b\u8bd5\u8bb0\u5f55\u6309\u6d4b\u8bd5\u65f6\u95f4\u5012\u5e8f"
+        f"\u6db5\u76d6\u4e86{preview}\uff0c\u8bf7\u9009\u62e9\u4f60\u8981\u89c2\u5bdf\u7684\u4ea7\u54c1\u578b\u53f7\u3002"
     )
 
 
@@ -333,7 +342,7 @@ def _slot_prompt(slot: str, values: tuple[str, ...]) -> Prompt:
         label=slot.replace("_", " "),
         message=f"\u9009\u62e9{label}\u3002",
         required=True,
-        input_type="single_select",
+        input_type="multi_select" if slot in {"config_version", "type_system"} else "single_select",
         candidates=[PromptCandidate(value=value, label=value) for value in values],
     )
 
@@ -363,13 +372,13 @@ def _filter_records(
     records: tuple[TestRecordSummary, ...],
     *,
     product_type: str,
-    config_version: str | None = None,
+    config_versions: tuple[str, ...] = (),
 ) -> tuple[TestRecordSummary, ...]:
     return tuple(
         record
         for record in records
         if record.product_type == product_type
-        and (config_version is None or record.config_version == config_version)
+        and (not config_versions or record.config_version in config_versions)
     )
 
 

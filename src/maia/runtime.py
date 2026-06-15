@@ -17,6 +17,7 @@ from maia.integrations.sigma import (
 from maia.integrations.sigma.product_catalog import ProductConfig
 from maia.presentation import present_turn
 from maia.recognition import RecognitionReport, build_maia_recognizer_from_config
+from maia.recognition.normalization import SUMMARY_RESULT_ALIASES, SUMMARY_RESULT_VALUES
 from maia.runtime_product_filters import (
     complete_config_version_filter,
     complete_product_type_filter,
@@ -29,21 +30,17 @@ from maia.runtime_product_filters import (
     selection_expression_from_storage,
     type_system_scope,
 )
+from maia.runtime_slot_replies import (
+    mark_pending_prompts,
+    prompt_replies_allow_all_products,
+    resolve_pending_prompt_reply,
+)
 from maia.selection import InMemorySelectionSetRepository
 from maia.selection.compiler import SelectionQueryCompiler
 from maia.selection.service import SelectionSetMaterializer, SelectionSetService
 from maia.selection.sets import SelectionSet
 
-_SUMMARY_RESULT_VALUES = (
-    "\u4e0d\u5408\u683c",
-    "\u5408\u683c",
-    "\u672a\u8bbe\u7f6e\u754c\u9650\u503c",
-    "\u5f02\u5e38",
-    "\u6b21\u5f02\u5e38",
-    "\u68c0\u6d4b\u5931\u8d25",
-    "NG",
-    "OK",
-)
+_SUMMARY_RESULT_RESOLVER_VALUES = (*SUMMARY_RESULT_VALUES, *(alias.upper() for alias in SUMMARY_RESULT_ALIASES))
 
 
 class Recognizer(Protocol):
@@ -100,11 +97,14 @@ class MaiaTurnHandler:
     async def handle_turn(self, request: TurnRequest) -> TurnResponse:
         state = self._state_repository.load(request.session_id)
         product_configs = await self._product_configs(request)
-        report = await self._recognizer.recognize(
-            request.message,
-            resolver=_TurnResolver(product_configs),
-            include_diagnostics=False,
-        )
+        try:
+            report = await self._recognize_or_apply_prompt_replies(
+                request,
+                state,
+                product_configs,
+            )
+        except ValueError as exc:
+            return present_turn(ClarifyPlan(reason="ambiguous_slots", message=str(exc)))
         if report.verdict == "low":
             return present_turn(
                 ClarifyPlan(
@@ -131,9 +131,11 @@ class MaiaTurnHandler:
         draft, clarify = await self._complete_product_filters(
             request,
             draft,
-            allow_all_products=is_all_product_types_request(request.message),
+            allow_all_products=is_all_product_types_request(request.message)
+            or prompt_replies_allow_all_products(request.prompt_replies),
         )
         if clarify is not None:
+            draft = mark_pending_prompts(draft, clarify)
             self._state_repository.save(
                 request.session_id,
                 self._selection_store.save_pending(state, draft),
@@ -157,6 +159,36 @@ class MaiaTurnHandler:
             return ()
         return await self._product_catalog.list_configs(
             lang="zh" if request.workspace_context is None else request.workspace_context.lang
+        )
+
+    async def _recognize_or_apply_prompt_replies(
+        self,
+        request: TurnRequest,
+        state: ConversationSelectionState,
+        product_configs: tuple[ProductConfig, ...],
+    ) -> RecognitionReport:
+        empty_report = RecognitionReport(
+            message=request.message,
+            verdict="clear",
+            requires_confirmation=False,
+            degraded=False,
+        )
+        if request.prompt_replies:
+            return resolve_pending_prompt_reply(
+                state.pending_selection_draft,
+                request.message,
+                empty_report,
+                prompt_replies=request.prompt_replies,
+            )
+        report = await self._recognizer.recognize(
+            request.message,
+            resolver=_TurnResolver(product_configs),
+            include_diagnostics=False,
+        )
+        return resolve_pending_prompt_reply(
+            state.pending_selection_draft,
+            request.message,
+            report,
         )
 
     def _resolve_base_selection(
@@ -210,13 +242,13 @@ class MaiaTurnHandler:
             config_version_scope(draft.expression),
             workspace_context=request.workspace_context,
         )
-        draft, clarify, config_version = complete_config_version_filter(
+        draft, clarify, config_versions = complete_config_version_filter(
             draft,
             version_records,
             reducer=self._draft_reducer,
             product_type=product_type,
         )
-        if clarify is not None or config_version is None:
+        if clarify is not None or not config_versions:
             return draft, clarify
 
         system_records = await self._selection_compiler.records_for_expression(
@@ -228,7 +260,7 @@ class MaiaTurnHandler:
             system_records,
             reducer=self._draft_reducer,
             product_type=product_type,
-            config_version=config_version,
+            config_versions=config_versions,
         )
 
 
@@ -328,7 +360,7 @@ class _TurnResolver:
             "product_type": distinct_values(item.product_type for item in product_configs),
             "config_version": distinct_values(item.config_version for item in product_configs),
             "type_system": distinct_values(item.type_system for item in product_configs),
-            "summary_result": _SUMMARY_RESULT_VALUES,
+            "summary_result": _SUMMARY_RESULT_RESOLVER_VALUES,
         }
 
     async def resolve(

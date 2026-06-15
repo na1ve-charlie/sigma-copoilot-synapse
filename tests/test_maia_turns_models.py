@@ -36,35 +36,19 @@ from synapse.turns import TurnRequest as SynapseTurnRequest
 SAMPLES_PATH = Path("configs/maia/turns_response_samples.yaml")
 
 
-def test_turn_request_dump_matches_current_synapse_public_contract() -> None:
+def test_turn_request_dump_keeps_only_lang_in_maia_workspace_context() -> None:
     payload = {
         "session_id": "sess-001",
         "message": "show S1",
-        "workspace_context": {
-            "workspace_session_id": "ws-123",
-            "data_load_mode": "dataset",
-            "dataset_id": "1152",
-            "dataset_name": "MAXV 1152",
-            "dataset_origin": "selected_dataset",
-            "dataset_version": 3,
-            "filter_hash": "abc123",
-            "products": [
-                {
-                    "product_type": "P1",
-                    "product_version": "V1",
-                    "system_no": "SYS-01",
-                }
-            ],
-            "test_time": {"start": "2026-05-01", "end": "2026-05-31"},
-            "type_systems": [{"type": "P1", "system_no": "SYS-01"}],
-            "lang": "zh",
-        },
+        "workspace_context": {"lang": "zh"},
     }
 
     maia = TurnRequest(**payload)
     synapse = SynapseTurnRequest(**payload)
 
-    assert maia.model_dump(mode="json") == synapse.model_dump(mode="json")
+    assert maia.model_dump(mode="json") == payload
+    assert synapse.workspace_context is not None
+    assert synapse.workspace_context.lang == "zh"
 
 
 def test_turn_plan_dumps_match_current_synapse_public_shape() -> None:

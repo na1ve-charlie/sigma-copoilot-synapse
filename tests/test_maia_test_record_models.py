@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-import json
 from datetime import UTC, datetime
-from pathlib import Path
 
 import pytest
 from pydantic import ValidationError
@@ -10,19 +8,15 @@ from pydantic import ValidationError
 from maia.integrations.sigma.records import TestRecordPage, TestRecordSummary
 
 
-WORKSPACE_CONTEXT_PATH = Path("configs/maia/sigma/offline_1152.workspace_context.json")
 
 
 def test_test_record_summary_accepts_canonical_record_fields() -> None:
-    workspace_context = json.loads(WORKSPACE_CONTEXT_PATH.read_text(encoding="utf-8"))
-    product = workspace_context["products"][0]
-
     summary = TestRecordSummary(
         record_id="rec-001",
         tested_at="2026-06-11T09:30:00Z",
-        product_type=product["product_type"],
-        config_version=product["product_version"],
-        system_no=product["system_no"],
+        product_type="hzzxkj-0527",
+        config_version="4",
+        system_no="7s-SNF1001",
         serial_number="SNF1001",
         summary_result="FAIL",
         manual_tags=["异响", "异响", "复测"],

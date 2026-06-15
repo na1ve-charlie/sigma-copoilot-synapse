@@ -91,13 +91,14 @@ class TestRecordClient:
             rows=rows,
         )
         request_params = request.to_http_params()
+        print(request_params)
         payload, status_code = await self._request_payload(request_params)
         try:
             return self._response_mapper.map(payload)
         except ValueError as exc:
             raise TestRecordClientError(
                 _status_message(
-                    "SigMA list_test_records response mapping failed",
+                    f"SigMA list_test_records response mapping failed: {exc}",
                     status_code,
                 ),
                 operation=LIST_TEST_RECORDS_OPERATION,

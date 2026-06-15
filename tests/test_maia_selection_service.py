@@ -224,7 +224,7 @@ def _key(expression: object) -> str:
 
 
 def _workspace_context() -> WorkspaceContext:
-    return WorkspaceContext(workspace_session_id="ws-1")
+    return WorkspaceContext(lang="zh")
 
 
 def _id_factory():

@@ -21,8 +21,8 @@ intents:
   tree_text: 用户想按序列号、编号或精确记录标识筛选当前范围。
 - name: task.nvh.selection.set_summary_result
   domain: nvh.selection
-  embed_text: 不合格, 合格, NG, FAIL, PASS, 只看坏件
-  tree_text: 用户想按综合结果筛选，例如合格、不合格、NG 或 FAIL。
+  embed_text: 合格, 不合格, 未设置界限值, 界限值未设置, 异常, 次异常, 检测失败, NG, OK
+  tree_text: 用户想按综合结果筛选。合法值仅包括合格、不合格、未设置界限值、异常、次异常、检测失败；NG 是不合格别名，OK 是合格别名；不要把次异常简化为异常，不要把检测失败推测为不合格。
 - name: task.nvh.selection.set_sensor
   domain: nvh.selection
   embed_text: Vib1, Vib2, 传感器, 只看这个传感器, sensor, 加上传感器

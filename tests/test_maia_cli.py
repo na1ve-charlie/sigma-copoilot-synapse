@@ -313,7 +313,7 @@ def test_cli_message_mode_can_render_selection_set_and_loaded_records(
     capsys,
 ) -> None:
     workspace_path = tmp_path / "workspace-context.json"
-    workspace_path.write_text('{"dataset_id":"1152","lang":"zh"}', encoding="utf-8")
+    workspace_path.write_text('{"lang":"zh"}', encoding="utf-8")
     monkeypatch.setattr(
         "maia.cli.build_query_preview",
         lambda **_: SimpleNamespace(
