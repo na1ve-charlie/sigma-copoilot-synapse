@@ -74,7 +74,7 @@ class SigmaProductCatalogClient:
         self._transport = transport or _fetch_with_urllib
 
     async def list_configs(self, *, lang: str = "zh") -> tuple[ProductConfig, ...]:
-        params = {"page": 1, "rows": 99999, "status": 1, "lang": lang}
+        params = {"page": 1, "rows": 99999, "lang": lang}
         payload = await self._request_payload(
             self._url,
             params,

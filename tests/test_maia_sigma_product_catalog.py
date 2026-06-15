@@ -47,7 +47,7 @@ def test_product_catalog_preserves_zero_version_values() -> None:
     )
 
     assert captured["url"] == "http://sigma.local/api/storage/type"
-    assert captured["params"] == {"page": 1, "rows": 99999, "status": 1, "lang": "zh"}
+    assert captured["params"] == {"page": 1, "rows": 99999, "lang": "zh"}
     assert configs[0].product_type == "HZXJ0515"
     assert configs[0].config_version == "0"
     assert configs[0].type_system == "SYS-01"
