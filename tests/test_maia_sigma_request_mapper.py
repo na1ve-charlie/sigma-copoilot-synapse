@@ -67,7 +67,10 @@ def test_request_mapper_normalizes_boolean_and_text_qualifiers() -> None:
                 {"kind": "predicate", "name": "config_version_in", "params": {"values": ["A12"]}},
                 {"kind": "predicate", "name": "type_system_in", "params": {"values": ["SYS-01"]}},
                 {"kind": "predicate", "name": "serial_number_in", "params": {"values": ["SN1001"]}},
-                {"kind": "predicate", "name": "manual_tag_in", "params": {"values": ["复测"]}},
+                {"kind": "predicate", "name": "manual_tagging_in", "params": {"values": ["不合格"]}},
+                {"kind": "predicate", "name": "remark_in", "params": {"values": ["异响"]}},
+                {"kind": "predicate", "name": "test_section_in", "params": {"values": ["高速段"]}},
+                {"kind": "predicate", "name": "status_in", "params": {"values": ["无效"]}},
                 {"kind": "predicate", "name": "archive_status_in", "params": {"values": ["archived"]}},
                 {"kind": "predicate", "name": "data_kind_in", "params": {"values": ["raw"]}},
                 {"kind": "predicate", "name": "artifact_availability_in", "params": {"values": ["available"]}},
@@ -86,8 +89,11 @@ def test_request_mapper_normalizes_boolean_and_text_qualifiers() -> None:
         "onlyRepeatSerial": "true",
         "versionList": "A12",
         "systemNoList": "SYS-01",
-        "serialNumberList": "SN1001",
-        "manualTagging": "复测",
+        "serialNo": "SN1001",
+        "manualTagging": "不合格",
+        "remark": "异响",
+        "status": "无效",
+        "testSection": "高速段",
         "hasOriginData": "true",
     }
 
@@ -121,6 +127,21 @@ def test_request_mapper_does_not_infer_unconfirmed_negative_semantics() -> None:
                         "params": {"values": ["unavailable"]},
                     },
                 ],
+            },
+            workspace_context=_workspace_context(),
+        )
+
+
+@pytest.mark.parametrize("predicate_name", ["manual_tagging_in", "status_in"])
+def test_request_mapper_rejects_unknown_marking_result_values(predicate_name: str) -> None:
+    mapper = LegacyRecordRequestMapper()
+
+    with pytest.raises(ValueError, match=predicate_name):
+        mapper.map(
+            {
+                "kind": "predicate",
+                "name": predicate_name,
+                "params": {"values": ["人工标记"]},
             },
             workspace_context=_workspace_context(),
         )

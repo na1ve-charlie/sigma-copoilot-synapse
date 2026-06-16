@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import pytest
+
 from maia.conversation.draft import SelectionDraft, SelectionDraftReducer, SelectionSort
 from maia.recognition.report import RecognitionReport, RecognitionSlotOperation
 
@@ -181,6 +183,32 @@ def test_latest_n_updates_limit_and_default_sort() -> None:
     assert draft.limit == 5
     assert draft.sort == (SelectionSort(field="tested_at", direction="desc"),)
     assert draft.revision == 1
+
+
+@pytest.mark.parametrize(
+    ("entity_type", "predicate_name", "target"),
+    [
+        ("serial_number", "serial_number_in", "S1F22900785"),
+        ("remark", "remark_in", "异响"),
+        ("test_section", "test_section_in", "高速段"),
+    ],
+)
+def test_reducer_accepts_free_text_slots_without_candidate_validation(
+    entity_type: str,
+    predicate_name: str,
+    target: str,
+) -> None:
+    draft = SelectionDraftReducer().apply(
+        None,
+        _report(_slot_operation(entity_type, "replace", target, False)),
+    )
+
+    assert draft.expression is not None
+    assert draft.expression.model_dump(mode="json") == {
+        "kind": "predicate",
+        "name": predicate_name,
+        "params": {"values": [target]},
+    }
 
 
 def test_clear_resets_expression_and_limit_but_preserves_base_selection_id() -> None:

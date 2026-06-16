@@ -18,7 +18,11 @@ from maia.integrations.sigma import (
 from maia.integrations.sigma.product_catalog import ProductConfig
 from maia.presentation import present_turn
 from maia.recognition import RecognitionReport, build_maia_recognizer_from_config
-from maia.recognition.normalization import SUMMARY_RESULT_ALIASES, SUMMARY_RESULT_VALUES
+from maia.recognition.normalization import (
+    MARKING_RESULT_VALUES,
+    SUMMARY_RESULT_ALIASES,
+    SUMMARY_RESULT_VALUES,
+)
 from maia.runtime_product_filters import (
     complete_config_version_filter,
     complete_product_type_filter,
@@ -44,6 +48,7 @@ from maia.selection.service import SelectionSetMaterializer, SelectionSetService
 from maia.selection.sets import SelectionSet
 
 _SUMMARY_RESULT_RESOLVER_VALUES = (*SUMMARY_RESULT_VALUES, *(alias.upper() for alias in SUMMARY_RESULT_ALIASES))
+_MARKING_RESULT_RESOLVER_VALUES = MARKING_RESULT_VALUES
 
 
 @dataclass(frozen=True)
@@ -464,7 +469,9 @@ class _TurnResolver:
             "product_type": distinct_values(item.product_type for item in product_configs),
             "config_version": distinct_values(item.config_version for item in product_configs),
             "type_system": distinct_values(item.type_system for item in product_configs),
+            "manual_tagging": _MARKING_RESULT_RESOLVER_VALUES,
             "summary_result": _SUMMARY_RESULT_RESOLVER_VALUES,
+            "status": _MARKING_RESULT_RESOLVER_VALUES,
         }
 
     async def resolve(

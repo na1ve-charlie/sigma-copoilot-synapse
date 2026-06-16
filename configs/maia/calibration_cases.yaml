@@ -138,10 +138,25 @@ cases:
       - {}
     note: "复合意图：测试段筛选 + 观察动作"
 
-  - message: "只看人工标记为异响"
-    expected: "task.nvh.selection.set_manual_tag"
-    slots: {action: "replace", entity_type: "manual_tag", target: "异响"}
-    note: "筛选条件：人工标记"
+  - message: "只看人工标记总结果为不合格"
+    expected: "task.nvh.selection.set_manual_tagging"
+    slots: {action: "replace", entity_type: "manual_tagging", target: "不合格"}
+    note: "筛选条件：人工标记总状态"
+
+  - message: "备注包含异响"
+    expected: "task.nvh.selection.set_remark"
+    slots: {action: "replace", entity_type: "remark", target: "异响"}
+    note: "筛选条件：备注文本"
+
+  - message: "标记测试段为高速段"
+    expected: "task.nvh.selection.set_test_section"
+    slots: {action: "replace", entity_type: "test_section", target: "高速段"}
+    note: "筛选条件：标记测试段"
+
+  - message: "只看测试段结果为无效的记录"
+    expected: "task.nvh.selection.set_status"
+    slots: {action: "replace", entity_type: "status", target: "无效"}
+    note: "筛选条件：测试段结果"
 
   - message: "排除归档数据"
     expected: "task.nvh.selection.set_archive_status"

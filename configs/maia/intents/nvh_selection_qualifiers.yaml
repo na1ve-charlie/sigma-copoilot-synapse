@@ -1,8 +1,12 @@
 intents:
-- name: task.nvh.selection.set_manual_tag
+- name: task.nvh.selection.set_manual_tagging
   domain: nvh.selection
-  embed_text: 人工标记, 异响标签, 只看标记, manual tag, 标签为异响
-  tree_text: 用户想按人工标记或人工标签筛选当前范围。
+  embed_text: 人工标记总状态, 人工标记总结果, manualTagging, 人工标记不合格, 人工标记无效
+  tree_text: 用户想按人工标记总状态筛选当前范围。合法值仅包括合格、不合格、无效；不要把“人工标记”本身当作 target。
+- name: task.nvh.selection.set_remark
+  domain: nvh.selection
+  embed_text: 备注, 备注包含, remark, 备注为异响
+  tree_text: 用户想按备注文本筛选当前范围。备注是自由文本字段，不需要候选值命中。
 - name: task.nvh.selection.set_archive_status
   domain: nvh.selection
   embed_text: 归档数据, 排除归档, 未归档, archive status, 只看未归档

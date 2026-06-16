@@ -211,6 +211,67 @@ def test_normalize_time_range_covers_common_explicit_time_expressions(
 
 
 @pytest.mark.parametrize(
+    ("raw", "expected"),
+    [
+        ("六月十一号", "start=2026-06-11 00:00:00; end=2026-06-11 23:59:59"),
+        ("十一号", "start=2026-06-11 00:00:00; end=2026-06-11 23:59:59"),
+        ("6月十一号", "start=2026-06-11 00:00:00; end=2026-06-11 23:59:59"),
+        ("六月11号", "start=2026-06-11 00:00:00; end=2026-06-11 23:59:59"),
+        ("二零二六年六月十一日", "start=2026-06-11 00:00:00; end=2026-06-11 23:59:59"),
+        ("0611", "start=2026-06-11 00:00:00; end=2026-06-11 23:59:59"),
+        ("611", "start=2026-06-11 00:00:00; end=2026-06-11 23:59:59"),
+        ("20260611", "start=2026-06-11 00:00:00; end=2026-06-11 23:59:59"),
+        ("202606", "start=2026-06-01 00:00:00; end=2026-06-30 23:59:59"),
+        ("6月", "start=2026-06-01 00:00:00; end=2026-06-30 23:59:59"),
+        ("我想看6月的测试记录", "start=2026-06-01 00:00:00; end=2026-06-30 23:59:59"),
+        ("06/11", "start=2026-06-11 00:00:00; end=2026-06-11 23:59:59"),
+        ("6.11", "start=2026-06-11 00:00:00; end=2026-06-11 23:59:59"),
+        ("2026.06.11", "start=2026-06-11 00:00:00; end=2026-06-11 23:59:59"),
+    ],
+)
+def test_normalize_time_range_accepts_partial_datetime_text(
+    raw: str,
+    expected: str,
+) -> None:
+    assert normalize_time_range(raw, anchor_time=datetime(2026, 6, 16, 13, 20, 30)) == expected
+
+
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [
+        ("0611-0622", "start=2026-06-11 00:00:00; end=2026-06-22 23:59:59"),
+        ("611到622", "start=2026-06-11 00:00:00; end=2026-06-22 23:59:59"),
+        ("六月十一到六月二十二", "start=2026-06-11 00:00:00; end=2026-06-22 23:59:59"),
+        ("6月到8月", "start=2026-06-01 00:00:00; end=2026-08-31 23:59:59"),
+        ("202606-202608", "start=2026-06-01 00:00:00; end=2026-08-31 23:59:59"),
+        ("11号之前", "end=2026-06-11 00:00:00"),
+        ("我想看6月11号之前的测试记录", "end=2026-06-11 00:00:00"),
+        ("6月之后", "start=2026-07-01 00:00:00"),
+        ("5月之后", "start=2026-06-01 00:00:00"),
+        ("我想查看上个月之后的测试记录", "start=2026-06-01 00:00:00"),
+        ("5月以来", "start=2026-05-01 00:00:00; end=2026-06-16 13:20:30"),
+        ("3月以来", "start=2026-03-01 00:00:00; end=2026-06-16 13:20:30"),
+        ("六月以来", "start=2026-06-01 00:00:00; end=2026-06-16 13:20:30"),
+        ("从六月开始", "start=2026-06-01 00:00:00; end=2026-06-16 13:20:30"),
+        ("上个月初到今天", "start=2026-05-01 00:00:00; end=2026-06-16 23:59:59"),
+        ("我想查看上个月初到今天的测试记录", "start=2026-05-01 00:00:00; end=2026-06-16 23:59:59"),
+        ("昨天下午16:14之后", "start=2026-06-15 16:14:00"),
+    ],
+)
+def test_normalize_time_range_accepts_partial_ranges_boundaries_and_since(
+    raw: str,
+    expected: str,
+) -> None:
+    assert normalize_time_range(raw, anchor_time=datetime(2026, 6, 16, 13, 20, 30)) == expected
+
+
+@pytest.mark.parametrize("raw", ["1361", "0230", "13月", "6月32号"])
+def test_normalize_time_range_rejects_invalid_partial_datetime(raw: str) -> None:
+    with pytest.raises(ValueError):
+        normalize_time_range(raw, anchor_time=datetime(2026, 6, 16, 13, 20, 30))
+
+
+@pytest.mark.parametrize(
     "payload",
     [
         {"kind": "RELATIVE_DAY", "source_text": "大前天", "offset_days": -3, "confidence": 0.74},

@@ -544,10 +544,10 @@ def test_maia_recognizer_uses_time_extractor_for_natural_language_target(
     )
     extractor = FakeTimeRangeExtractor(
         {
-            "昨天下午16:14之后": TimeRangeExpr(
-                TimeRangeKind.AFTER_DATETIME,
-                date_ref="YESTERDAY",
-                time="16:14:00",
+            "上上个周二": TimeRangeExpr(
+                TimeRangeKind.CALENDAR_WEEKDAY,
+                week_offset=-2,
+                weekday=2,
             )
         }
     )
@@ -560,7 +560,7 @@ def test_maia_recognizer_uses_time_extractor_for_natural_language_target(
                 slots=IntentSlot(
                     action="replace",
                     entity_type="time_range",
-                    target="昨天下午16:14之后",
+                    target="上上个周二",
                     slot_valid=False,
                 ),
             ),
@@ -571,13 +571,13 @@ def test_maia_recognizer_uses_time_extractor_for_natural_language_target(
         MaiaRecognizer(
             FakeRecognizer(decision),
             time_range_extractor=extractor,
-        ).recognize("我想看昨天下午16:14之后的测试记录")
+        ).recognize("我想看上上个周二的测试记录")
     )
 
-    assert extractor.calls == [("我想看昨天下午16:14之后的测试记录", "昨天下午16:14之后")]
-    assert report.intents[0].slots["target"] == "start=2026-06-15 16:14:00"
+    assert extractor.calls == [("我想看上上个周二的测试记录", "上上个周二")]
+    assert report.intents[0].slots["target"] == "start=2026-06-02 00:00:00; end=2026-06-02 23:59:59"
     assert report.intents[0].slots["slot_valid"] is True
-    assert report.slot_operations[0].target == "start=2026-06-15 16:14:00"
+    assert report.slot_operations[0].target == "start=2026-06-02 00:00:00; end=2026-06-02 23:59:59"
     assert report.slot_operations[0].slot_valid is True
 
 

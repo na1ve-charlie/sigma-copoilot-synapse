@@ -73,6 +73,30 @@ def test_summary_result_filling_keeps_non_summary_report_unchanged() -> None:
     assert report is original
 
 
+def test_summary_result_filling_routes_manual_tagging_result_to_manual_tagging_slot() -> None:
+    report = fill_summary_result_slots(
+        _report(
+            "帮我找出所有人工标记总结果为不合格的测试记录",
+            _slot_operation("manual_tagging", "add", "人工标记", True),
+        )
+    )
+
+    assert [operation.entity_type for operation in report.slot_operations] == ["manual_tagging"]
+    assert report.slot_operations[0].intent == "task.nvh.selection.set_manual_tagging"
+    assert report.slot_operations[0].action == "replace"
+    assert report.slot_operations[0].target == "不合格"
+    assert report.slot_operations[0].slot_valid is True
+
+
+def test_summary_result_filling_routes_test_section_status_to_status_slot() -> None:
+    report = fill_summary_result_slots(_report("帮我找出测试段结果为不合格的测试记录"))
+
+    assert [operation.entity_type for operation in report.slot_operations] == ["status"]
+    assert report.slot_operations[0].intent == "task.nvh.selection.set_status"
+    assert report.slot_operations[0].target == "不合格"
+    assert report.slot_operations[0].slot_valid is True
+
+
 def _report(
     message: str,
     *slot_operations: RecognitionSlotOperation,

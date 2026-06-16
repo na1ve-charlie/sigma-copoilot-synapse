@@ -31,6 +31,14 @@ intents:
   domain: nvh.selection
   embed_text: 测试段, Spd-rDL, idle, 工况段, test segment
   tree_text: 用户想增加、替换、移除或排除测试段筛选条件。
+- name: task.nvh.selection.set_test_section
+  domain: nvh.selection
+  embed_text: 标记测试段, testSection, 标记测试段为高速段, 测试段标记
+  tree_text: 用户想按标记测试段文本筛选当前范围。标记测试段是自由文本字段，不需要候选值命中。
+- name: task.nvh.selection.set_status
+  domain: nvh.selection
+  embed_text: 测试段结果, 测试段状态, status, 测试段结果不合格, 测试段无效
+  tree_text: 用户想按测试段结果筛选当前范围。合法值仅包括合格、不合格、无效；不要把测试段结果误分为综合结果。
 - name: task.nvh.selection.set_indicator
   domain: nvh.selection
   embed_text: RMS, 峰值, 指标, indicator, 只看这个指标

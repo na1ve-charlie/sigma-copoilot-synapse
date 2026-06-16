@@ -13,6 +13,25 @@ TIME_FORMAT = "%Y-%m-%d %H:%M:%S"
 DATE_FORMAT = "%Y-%m-%d"
 
 
+class DateTimePrecision(str, Enum):
+    YEAR = "YEAR"
+    MONTH = "MONTH"
+    DAY = "DAY"
+    MINUTE = "MINUTE"
+    SECOND = "SECOND"
+
+
+@dataclass(frozen=True)
+class PartialDateTime:
+    year: int
+    month: int | None
+    day: int | None
+    hour: int | None
+    minute: int | None
+    second: int | None
+    precision: DateTimePrecision
+
+
 class TimeRangeKind(str, Enum):
     TODAY = "TODAY"
     YESTERDAY = "YESTERDAY"
@@ -118,6 +137,15 @@ If confidence is below 0.75, use LOW_CONFIDENCE.
 """
 
 _RANGE_SPLIT_RE = re.compile(r"\s*(?:到|至)\s*")
+_COMPACT_RANGE_RE = re.compile(r"^(?P<start>\d{3,8})\s*[-~]\s*(?P<end>\d{3,8})$")
+_SEPARATED_PARTIAL_RE = re.compile(r"^(?:(?P<year>\d{4})[./])?(?P<month>\d{1,2})[./](?P<day>\d{1,2})$")
+_ISO_MONTH_RE = re.compile(r"^(?P<year>\d{4})-(?P<month>\d{1,2})$")
+_CHINESE_PARTIAL_RE = re.compile(
+    r"^(?:(?P<year>[\d零〇一二两三四五六七八九十]{4})年)?"
+    r"(?:(?P<month>[\d零〇一二两三四五六七八九十]{1,3})月)?"
+    r"(?:(?P<day>[\d零〇一二两三四五六七八九十]{1,3})(?:日|号))?$"
+)
+_TRAILING_TIME_RE = re.compile(r"(?P<time>(?:上午|下午|晚上|中午|凌晨|早上)?\d{1,2}:\d{2}(?::\d{2})?)$")
 _CANONICAL_RE = re.compile(
     r"^(?:start=(?P<start>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}))?"
     r"(?:; )?"
@@ -129,7 +157,7 @@ _SLASH_DATE_RE = re.compile(r"^(?P<year>\d{4})/(?P<month>\d{1,2})/(?P<day>\d{1,2
 _CHINESE_DATE_RE = re.compile(r"^(?:(?P<year>\d{4})年)?(?P<month>\d{1,2})月(?P<day>\d{1,2})日?$")
 _TIME_RE = re.compile(r"^(?P<prefix>上午|下午|晚上|中午|凌晨|早上)?(?P<hour>\d{1,2}):(?P<minute>\d{2})(?::(?P<second>\d{2}))?$")
 _RECENT_RE = re.compile(
-    r"^(?:最近|近|过去)?(?P<count>\d+|一|二|两|三|四|五|六|七|八|九|十|十一|十二|十三|十四|十五)(?P<unit>周|天|月|个月|小时)$"
+    r"^(?P<prefix>最近|近|过去)?(?P<count>\d+|一|二|两|三|四|五|六|七|八|九|十|十一|十二|十三|十四|十五)(?P<unit>周|天|月|个月|小时)$"
 )
 _WEEKDAY_RE = re.compile(r"^(?P<week>本周|这周|上周)(?P<weekday>一|二|三|四|五|六|日|天)$")
 _ALLOWED_EXPR_KEYS = set(TimeRangeExpr.__dataclass_fields__)
@@ -164,16 +192,23 @@ def normalize_time_range(target: Any, *, anchor_time: datetime | None = None) ->
     if canonical is not None:
         return render_bounds(canonical)
 
-    expr = _parse_rule_expr(text)
+    anchor = _anchor(anchor_time)
+    normalized_text = _strip_query_scaffold(text)
+
+    partial = _parse_partial_rule_bounds(normalized_text, anchor)
+    if partial is not None:
+        return render_bounds(partial)
+
+    expr = _parse_rule_expr(normalized_text)
     if expr is not None:
-        return render_bounds(normalize_time_range_expr(expr, anchor_time=anchor_time))
+        return render_bounds(normalize_time_range_expr(expr, anchor_time=anchor))
 
-    if text.endswith("前"):
-        return render_bounds(TimeRangeBounds(None, _parse_moment(text[:-1].strip(), is_end=False)))
-    if text.endswith("后"):
-        return render_bounds(TimeRangeBounds(_parse_moment(text[:-1].strip(), is_end=False), None))
+    if normalized_text.endswith("前"):
+        return render_bounds(TimeRangeBounds(None, _parse_moment(normalized_text[:-1].strip(), is_end=False)))
+    if normalized_text.endswith("后"):
+        return render_bounds(TimeRangeBounds(_parse_moment(normalized_text[:-1].strip(), is_end=False), None))
 
-    parts = _RANGE_SPLIT_RE.split(text, maxsplit=1)
+    parts = _RANGE_SPLIT_RE.split(normalized_text, maxsplit=1)
     if len(parts) == 2:
         return render_bounds(
             TimeRangeBounds(
@@ -216,11 +251,14 @@ def normalize_time_range_expr(
     if kind in _ROLLING_KINDS:
         return TimeRangeBounds(anchor - _rolling_delta(kind, _required_count(expr)), anchor)
     if kind is TimeRangeKind.ABSOLUTE_DATE:
-        return _day_bounds(_parse_date(_required_text(expr.date, "date"), anchor))
+        value = _parse_partial_date_text(_required_text(expr.date, "date"), anchor)
+        return TimeRangeBounds(_partial_start(value), _partial_end(value))
     if kind is TimeRangeKind.ABSOLUTE_DATE_RANGE:
+        start = _parse_partial_date_text(_required_text(expr.start_date, "start_date"), anchor)
+        end = _parse_partial_date_text(_required_text(expr.end_date, "end_date"), anchor)
         return TimeRangeBounds(
-            _start_of_day(_parse_date(_required_text(expr.start_date, "start_date"), anchor)),
-            _end_of_day(_parse_date(_required_text(expr.end_date, "end_date"), anchor)),
+            _partial_start(start),
+            _partial_end(end),
         )
     if kind is TimeRangeKind.AFTER_DATETIME:
         return TimeRangeBounds(_expr_datetime(expr, anchor, default=time.min), None)
@@ -370,6 +408,7 @@ _CHINESE_COUNTS = {
     "十四": 14,
     "十五": 15,
 }
+_CHINESE_DIGITS = dict(zip("零〇一二两三四五六七八九", (0, 0, 1, 2, 2, 3, 4, 5, 6, 7, 8, 9)))
 
 
 def _parse_rule_expr(text: str) -> TimeRangeExpr | None:
@@ -404,6 +443,8 @@ def _parse_rule_expr(text: str) -> TimeRangeExpr | None:
         return None
     count = _parse_count(match.group("count"))
     unit = match.group("unit")
+    if unit == "月" and match.group("prefix") is None:
+        return None
     kind = {
         "周": TimeRangeKind.RECENT_ROLLING_WEEKS,
         "天": TimeRangeKind.RECENT_ROLLING_DAYS,
@@ -421,6 +462,259 @@ def _parse_canonical(text: str) -> TimeRangeBounds | None:
     start = _parse_datetime(match.group("start")) if match.group("start") else None
     end = _parse_datetime(match.group("end")) if match.group("end") else None
     return TimeRangeBounds(start, end)
+
+
+def _strip_query_scaffold(text: str) -> str:
+    value = re.sub(r"\s+", "", text.strip())
+    for prefix in ("我想查看", "我想看", "我要查看", "我要看", "想查看", "想看", "查看", "查询", "看"):
+        if value.startswith(prefix):
+            value = value[len(prefix) :]
+            break
+    for suffix in ("的测试记录", "测试记录", "的测试数据", "测试数据"):
+        if value.endswith(suffix):
+            value = value[: -len(suffix)]
+            break
+    return value
+
+
+def _parse_partial_rule_bounds(text: str, anchor: datetime) -> TimeRangeBounds | None:
+    if not text:
+        return None
+    since = re.fullmatch(r"(?:从)?(?P<value>.+?)(?:以来|起|开始)", text)
+    if since is not None:
+        try:
+            value = _parse_partial_datetime(since["value"], anchor)
+        except ValueError:
+            if _looks_like_partial_datetime(since["value"]):
+                raise
+            return None
+        return TimeRangeBounds(_partial_start(value), anchor)
+
+    for suffix in ("之前", "以前", "前"):
+        if text.endswith(suffix):
+            value = _parse_partial_datetime(text[: -len(suffix)], anchor)
+            return TimeRangeBounds(None, _partial_start(value))
+    for suffix in ("之后", "以后", "后"):
+        if text.endswith(suffix):
+            value = _parse_partial_datetime(text[: -len(suffix)], anchor)
+            return TimeRangeBounds(_partial_after_start(value), None)
+
+    compact = _COMPACT_RANGE_RE.fullmatch(text)
+    parts = (compact["start"], compact["end"]) if compact is not None else None
+    if parts is None:
+        split = _RANGE_SPLIT_RE.split(text, maxsplit=1)
+        parts = (split[0], split[1]) if len(split) == 2 else None
+    if parts is not None:
+        start, end = parts
+        if end in {"现在", "当前"}:
+            end_time = anchor
+        elif end == "今天":
+            end_time = _end_of_day(anchor.date())
+        else:
+            end_time = _partial_end(_parse_partial_datetime(end, anchor))
+        return TimeRangeBounds(
+            _partial_start(_parse_partial_datetime(start, anchor)),
+            end_time,
+        )
+
+    if _parse_rule_expr(text) is not None:
+        return None
+
+    try:
+        value = _parse_partial_datetime(text, anchor)
+    except ValueError:
+        if _looks_like_partial_datetime(text):
+            raise
+        return None
+    return TimeRangeBounds(_partial_start(value), _partial_end(value))
+
+
+def _parse_partial_datetime(text: str, anchor: datetime) -> PartialDateTime:
+    value = text.strip()
+    if not value:
+        raise ValueError("partial datetime must not be blank")
+    relative = _parse_relative_partial(value, anchor)
+    if relative is not None:
+        return relative
+    value, parsed_time, precision = _split_trailing_time(value)
+    if not value and parsed_time is not None:
+        return _partial(anchor.year, anchor.month, anchor.day, parsed_time, precision)
+    relative = _parse_relative_partial(value, anchor)
+    if relative is not None:
+        if parsed_time is None:
+            return relative
+        return _partial(relative.year, relative.month, relative.day, parsed_time, precision)
+    if "月" in value and not value.endswith(("月", "日", "号")):
+        value = f"{value}号"
+
+    if _DATE_ONLY_RE.fullmatch(value):
+        day = datetime.strptime(value, DATE_FORMAT).date()
+        return _partial(day.year, day.month, day.day, parsed_time, precision)
+    month = _ISO_MONTH_RE.fullmatch(value)
+    if month is not None:
+        return _partial(int(month["year"]), int(month["month"]), None, parsed_time, precision)
+
+    separated = _SEPARATED_PARTIAL_RE.fullmatch(value)
+    if separated is not None:
+        year = int(separated["year"] or anchor.year)
+        return _partial(year, int(separated["month"]), int(separated["day"]), parsed_time, precision)
+
+    if value.isdigit():
+        return _parse_compact_digits(value, anchor, parsed_time, precision)
+
+    chinese = _CHINESE_PARTIAL_RE.fullmatch(value)
+    if chinese is not None and any(chinese.groupdict().values()):
+        year = _parse_year_token(chinese["year"]) if chinese["year"] else anchor.year
+        day_value = _parse_number_token(chinese["day"]) if chinese["day"] else None
+        month_value = (
+            _parse_number_token(chinese["month"])
+            if chinese["month"]
+            else anchor.month if day_value is not None else None
+        )
+        return _partial(year, month_value, day_value, parsed_time, precision)
+
+    raise ValueError(f"unsupported partial datetime: {text}")
+
+
+def _parse_partial_date_text(text: str, anchor: datetime) -> PartialDateTime:
+    try:
+        return _parse_partial_datetime(text, anchor)
+    except ValueError:
+        value = _parse_date(text, anchor)
+        return _partial(value.year, value.month, value.day, None, None)
+
+
+def _parse_relative_partial(text: str, anchor: datetime) -> PartialDateTime | None:
+    day_offset = {"今天": 0, "今日": 0, "昨天": -1, "前天": -2, "大前天": -3}.get(text)
+    if day_offset is not None:
+        target = anchor.date() + timedelta(days=day_offset)
+        return _partial(target.year, target.month, target.day, None, None)
+    month_offset = {
+        "月初": 0,
+        "本月初": 0,
+        "这个月初": 0,
+        "本月": 0,
+        "这个月": 0,
+        "上月": -1,
+        "上个月": -1,
+        "上月初": -1,
+        "上个月初": -1,
+    }.get(text)
+    if month_offset is not None:
+        target = _shift_month(datetime(anchor.year, anchor.month, 1), month_offset)
+        return _partial(target.year, target.month, 1 if text.endswith("初") else None, None, None)
+    year_offset = {"今年": 0, "去年": -1}.get(text)
+    if year_offset is not None:
+        return PartialDateTime(anchor.year + year_offset, None, None, None, None, None, DateTimePrecision.YEAR)
+    return None
+
+
+def _split_trailing_time(text: str) -> tuple[str, time | None, DateTimePrecision | None]:
+    normalized = text.replace(" ", "")
+    match = _TRAILING_TIME_RE.search(normalized)
+    if match is None:
+        return normalized, None, None
+    raw_time = match["time"]
+    precision = DateTimePrecision.SECOND if raw_time.count(":") == 2 else DateTimePrecision.MINUTE
+    return normalized[: match.start()], _parse_time(raw_time, time.min), precision
+
+
+def _parse_compact_digits(
+    value: str,
+    anchor: datetime,
+    parsed_time: time | None,
+    precision: DateTimePrecision | None,
+) -> PartialDateTime:
+    if len(value) == 8:
+        return _partial(int(value[:4]), int(value[4:6]), int(value[6:8]), parsed_time, precision)
+    if len(value) == 6:
+        return _partial(int(value[:4]), int(value[4:6]), None, parsed_time, precision)
+    if len(value) == 4:
+        return _partial(anchor.year, int(value[:2]), int(value[2:4]), parsed_time, precision)
+    if len(value) == 3:
+        return _partial(anchor.year, int(value[:1]), int(value[1:3]), parsed_time, precision)
+    raise ValueError(f"unsupported compact date: {value}")
+
+
+def _partial(
+    year: int,
+    month: int | None,
+    day: int | None,
+    parsed_time: time | None,
+    time_precision: DateTimePrecision | None,
+) -> PartialDateTime:
+    if parsed_time is not None and (month is None or day is None):
+        raise ValueError("time requires day precision")
+    if month is None:
+        return PartialDateTime(year, None, None, None, None, None, DateTimePrecision.YEAR)
+    if day is None:
+        date(year, month, 1)
+        return PartialDateTime(year, month, None, None, None, None, DateTimePrecision.MONTH)
+    date(year, month, day)
+    if parsed_time is None:
+        return PartialDateTime(year, month, day, None, None, None, DateTimePrecision.DAY)
+    return PartialDateTime(
+        year,
+        month,
+        day,
+        parsed_time.hour,
+        parsed_time.minute,
+        parsed_time.second,
+        time_precision or DateTimePrecision.SECOND,
+    )
+
+
+def _partial_start(value: PartialDateTime) -> datetime:
+    if value.precision is DateTimePrecision.YEAR:
+        return datetime(value.year, 1, 1)
+    if value.month is None:
+        raise ValueError("partial datetime month is required")
+    if value.precision is DateTimePrecision.MONTH:
+        return datetime(value.year, value.month, 1)
+    if value.day is None:
+        raise ValueError("partial datetime day is required")
+    if value.precision is DateTimePrecision.DAY:
+        return datetime(value.year, value.month, value.day)
+    return datetime(
+        value.year,
+        value.month,
+        value.day,
+        value.hour or 0,
+        value.minute or 0,
+        value.second or 0,
+    )
+
+
+def _partial_end(value: PartialDateTime) -> datetime:
+    start = _partial_start(value)
+    if value.precision is DateTimePrecision.YEAR:
+        return datetime(value.year + 1, 1, 1) - timedelta(seconds=1)
+    if value.precision is DateTimePrecision.MONTH:
+        return _shift_month(start, 1) - timedelta(seconds=1)
+    if value.precision is DateTimePrecision.DAY:
+        return _end_of_day(start.date())
+    if value.precision is DateTimePrecision.MINUTE:
+        return start + timedelta(seconds=59)
+    return start
+
+
+def _partial_after_start(value: PartialDateTime) -> datetime:
+    if value.precision is DateTimePrecision.YEAR:
+        return datetime(value.year + 1, 1, 1)
+    if value.precision is DateTimePrecision.MONTH:
+        return _shift_month(_partial_start(value), 1)
+    return _partial_start(value)
+
+
+def _looks_like_partial_datetime(text: str) -> bool:
+    if not text or text.startswith(("最近", "近", "过去")) or "个" in text:
+        return False
+    return (
+        text.isdigit()
+        or bool(re.search(r"[年月日号]", text))
+        or bool(re.fullmatch(r"\d{1,4}[./]\d{1,2}(?:[./]\d{1,2})?", text))
+        or bool(re.fullmatch(r"\d{4}-\d{1,2}(?:-\d{1,2})?", text))
+    )
 
 
 def _parse_moment(text: str, *, is_end: bool) -> datetime:
@@ -536,7 +830,14 @@ def _rolling_delta(kind: TimeRangeKind, count: int) -> timedelta:
 
 def _expr_datetime(expr: TimeRangeExpr, anchor: datetime, *, default: time) -> datetime:
     date_text = expr.date or expr.date_ref
-    return _combine(_parse_date(_required_text(date_text, "date"), anchor), _parse_time(expr.time, default))
+    required_date = _required_text(date_text, "date")
+    try:
+        partial = _parse_partial_datetime(required_date, anchor)
+    except ValueError:
+        return _combine(_parse_date(required_date, anchor), _parse_time(expr.time, default))
+    if expr.time is None and partial.precision in {DateTimePrecision.MINUTE, DateTimePrecision.SECOND}:
+        return _partial_start(partial)
+    return _combine(_partial_start(partial).date(), _parse_time(expr.time, default))
 
 
 def _parse_date(text: str, anchor: datetime) -> date:
@@ -557,7 +858,10 @@ def _parse_date(text: str, anchor: datetime) -> date:
     if chinese is not None:
         year = int(chinese["year"] or anchor.year)
         return date(year, int(chinese["month"]), int(chinese["day"]))
-    raise ValueError(f"unsupported date: {text}")
+    try:
+        return _partial_start(_parse_partial_datetime(value, anchor)).date()
+    except ValueError as exc:
+        raise ValueError(f"unsupported date: {text}") from exc
 
 
 def _parse_time(text_value: str | None, default: time) -> time:
@@ -701,6 +1005,31 @@ def _parse_count(text: str) -> int:
     if text in _CHINESE_COUNTS:
         return _CHINESE_COUNTS[text]
     raise ValueError(f"unsupported time_range count: {text}")
+
+
+def _parse_year_token(text: str) -> int:
+    if text.isdigit():
+        return int(text)
+    if len(text) == 4 and all(char in _CHINESE_DIGITS for char in text):
+        return int("".join(str(_CHINESE_DIGITS[char]) for char in text))
+    raise ValueError(f"unsupported year token: {text}")
+
+
+def _parse_number_token(text: str) -> int:
+    if text.isdigit():
+        return int(text)
+    if text in _CHINESE_DIGITS:
+        return _CHINESE_DIGITS[text]
+    if text == "十":
+        return 10
+    if text.startswith("十"):
+        return 10 + _parse_number_token(text[1:])
+    if text.endswith("十"):
+        return _parse_number_token(text[:-1]) * 10
+    if "十" in text:
+        tens, ones = text.split("十", maxsplit=1)
+        return _parse_number_token(tens) * 10 + _parse_number_token(ones)
+    raise ValueError(f"unsupported number token: {text}")
 
 
 __all__ = [

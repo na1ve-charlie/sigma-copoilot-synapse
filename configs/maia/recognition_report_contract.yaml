@@ -119,10 +119,13 @@ initial_scope:
     - type_system
     - serial_number
     - summary_result
+    - manual_tagging
     - sensor
     - test_segment
+    - test_section
+    - status
     - indicator
-    - manual_tag
+    - remark
     - archive_status
     - artifact_availability
     - repeat_serial

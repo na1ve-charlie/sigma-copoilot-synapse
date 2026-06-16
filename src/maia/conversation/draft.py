@@ -18,17 +18,21 @@ _PREDICATE_NAMES = {
     "config_version": "config_version_in",
     "data_kind": "data_kind_in",
     "indicator": "indicator_in",
-    "manual_tag": "manual_tag_in",
+    "manual_tagging": "manual_tagging_in",
     "product_type": "product_type_in",
     "repeat_serial": "repeat_serial_in",
+    "remark": "remark_in",
     "sensor": "sensor_in",
     "serial_number": "serial_number_in",
+    "status": "status_in",
     "summary_result": "summary_result_in",
+    "test_section": "test_section_in",
     "test_segment": "test_segment_in",
     "time_range": "tested_at_between",
     "type_system": "type_system_in",
 }
 _ENTITY_TYPES = {name: entity for entity, name in _PREDICATE_NAMES.items()}
+_FREE_TEXT_ENTITY_TYPES = frozenset({"remark", "serial_number", "test_section"})
 
 
 class SelectionSort(BaseModel):
@@ -125,7 +129,8 @@ def _flatten_slot_operation(slot_operation: RecognitionSlotOperation) -> tuple[t
     valids = _broadcast(_as_tuple(slot_operation.slot_valid), size)
     rows: list[tuple[str, str, Scalar]] = []
     for action, target, valid in zip(actions, values, valids, strict=True):
-        if not valid:
+        print(action, target, valid)
+        if not valid and slot_operation.entity_type not in _FREE_TEXT_ENTITY_TYPES:
             raise ValueError(f"slot operation for {slot_operation.entity_type} is invalid")
         rows.append((slot_operation.entity_type, str(action), target))
     return tuple(rows)

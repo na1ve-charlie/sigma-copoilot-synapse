@@ -8,6 +8,7 @@ from typing import Any, ClassVar
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from maia.api import WorkspaceContext
+from maia.recognition.normalization import MARKING_RESULT_VALUES
 from maia.selection.expression import (
     AllOf,
     AnyOf,
@@ -22,14 +23,19 @@ _LIST_FIELDS = {
     "config_version_in": "config_version_list",
     "indicator_in": "indicator_list",
     "sensor_in": "sensor_id_list",
-    "serial_number_in": "serial_number_list",
     "summary_result_in": "summary_result_list",
     "test_segment_in": "test_name_list",
     "type_system_in": "system_no_list",
 }
 _TEXT_FIELDS = {
-    "manual_tag_in": "manual_tagging",
     "product_type_in": "product_type",
+    "remark_in": "remark",
+    "serial_number_in": "serial_number",
+    "test_section_in": "test_section",
+}
+_ENUM_TEXT_FIELDS = {
+    "manual_tagging_in": "manual_tagging",
+    "status_in": "status",
 }
 _BOOL_FIELDS = {
     "archive_status_in": ("archive", {"archived": True}),
@@ -69,10 +75,13 @@ class LegacyRecordRequestParams(BaseModel):
     product_type: str | None = Field(default=None, serialization_alias="type")
     config_version_list: tuple[str, ...] = Field(default=(), serialization_alias="versionList")
     system_no_list: tuple[str, ...] = Field(default=(), serialization_alias="systemNoList")
-    serial_number_list: tuple[str, ...] = Field(default=(), serialization_alias="serialNumberList")
+    serial_number: str | None = Field(default=None, serialization_alias="serialNo")
     summary_result_list: tuple[str, ...] = Field(default=(), serialization_alias="sumList")
     manual_tagging: str | None = Field(default=None, serialization_alias="manualTagging")
+    remark: str | None = None
     sensor_id_list: tuple[str, ...] = Field(default=(), serialization_alias="sensorIdList")
+    status: str | None = None
+    test_section: str | None = Field(default=None, serialization_alias="testSection")
     test_name_list: tuple[str, ...] = Field(default=(), serialization_alias="testNameList")
     indicator_list: tuple[str, ...] = Field(default=(), serialization_alias="indicatorList")
     has_pdf_report: bool | None = Field(default=None, serialization_alias="hasPdfReport")
@@ -82,7 +91,18 @@ class LegacyRecordRequestParams(BaseModel):
     start_time: str | None = Field(default=None, serialization_alias="startTime")
     end_time: str | None = Field(default=None, serialization_alias="endTime")
 
-    @field_validator("data_group_id", "lang", "product_type", "manual_tagging", "start_time", "end_time")
+    @field_validator(
+        "data_group_id",
+        "lang",
+        "product_type",
+        "manual_tagging",
+        "remark",
+        "serial_number",
+        "status",
+        "test_section",
+        "start_time",
+        "end_time",
+    )
     @classmethod
     def _require_text(cls, value: str | None, info) -> str | None:
         if value is not None and not value.strip():
@@ -169,6 +189,12 @@ def _apply_predicate(target: dict[str, Any], predicate: Predicate) -> None:
         return
     if predicate.name in _TEXT_FIELDS:
         _set_once(target, _TEXT_FIELDS[predicate.name], _single_value(predicate))
+        return
+    if predicate.name in _ENUM_TEXT_FIELDS:
+        value = _single_value(predicate)
+        if value not in MARKING_RESULT_VALUES:
+            raise ValueError(f"unsupported values for {predicate.name}: {(value,)}")
+        _set_once(target, _ENUM_TEXT_FIELDS[predicate.name], value)
         return
     if predicate.name == "tested_at_between":
         start = predicate.params.get("start")
