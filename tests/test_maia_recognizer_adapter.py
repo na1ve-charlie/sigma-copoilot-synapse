@@ -9,6 +9,7 @@ from themis import IntentDecision, IntentMatch, IntentSlot, RecognitionVerdict
 
 from maia import MaiaRecognizer, RecognitionReport, build_maia_recognizer_from_config
 from maia.recognition import adapter as adapter_module
+from maia.recognition.time_range import TimeRangeExpr, TimeRangeKind
 
 
 class FakeRecognizer:
@@ -51,6 +52,16 @@ class FakeBusinessIntentRecognizer:
         resolver: Any | None = None,
     ) -> IntentDecision:
         return IntentDecision(verdict=RecognitionVerdict.CLEAR, intents=())
+
+
+class FakeTimeRangeExtractor:
+    def __init__(self, responses: dict[str, Any]) -> None:
+        self.responses = responses
+        self.calls: list[tuple[str, str]] = []
+
+    async def extract_time_range(self, *, message: str, target: str) -> Any:
+        self.calls.append((message, target))
+        return self.responses[target]
 
 
 def run(coro):
@@ -480,6 +491,229 @@ def test_maia_recognizer_revalidates_time_range_from_business_normalization(
     assert report.intents[0].slots["slot_valid"] is True
     assert report.slot_operations[0].target == "start=2026-06-05 00:00:00; end=2026-06-12 00:00:00"
     assert report.slot_operations[0].slot_valid is True
+
+
+def test_maia_recognizer_does_not_call_time_extractor_for_rule_supported_target(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from maia.recognition import normalization as normalization_module
+
+    monkeypatch.setattr(
+        normalization_module,
+        "_now",
+        lambda: normalization_module.datetime(2026, 6, 12, 0, 0, 0),
+    )
+    extractor = FakeTimeRangeExtractor({})
+    decision = IntentDecision(
+        verdict=RecognitionVerdict.CLEAR,
+        intents=(
+            IntentMatch(
+                name="task.nvh.selection.set_time_range",
+                score=0.95,
+                slots=IntentSlot(
+                    action="replace",
+                    entity_type="time_range",
+                    target="最近1周",
+                    slot_valid=False,
+                ),
+            ),
+        ),
+    )
+
+    report = run(
+        MaiaRecognizer(
+            FakeRecognizer(decision),
+            time_range_extractor=extractor,
+        ).recognize("查最近一周")
+    )
+
+    assert extractor.calls == []
+    assert report.slot_operations[0].target == "start=2026-06-05 00:00:00; end=2026-06-12 00:00:00"
+    assert report.slot_operations[0].slot_valid is True
+
+
+def test_maia_recognizer_uses_time_extractor_for_natural_language_target(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from maia.recognition import normalization as normalization_module
+
+    monkeypatch.setattr(
+        normalization_module,
+        "_now",
+        lambda: normalization_module.datetime(2026, 6, 16, 13, 20, 30),
+    )
+    extractor = FakeTimeRangeExtractor(
+        {
+            "昨天下午16:14之后": TimeRangeExpr(
+                TimeRangeKind.AFTER_DATETIME,
+                date_ref="YESTERDAY",
+                time="16:14:00",
+            )
+        }
+    )
+    decision = IntentDecision(
+        verdict=RecognitionVerdict.CLEAR,
+        intents=(
+            IntentMatch(
+                name="task.nvh.selection.set_time_range",
+                score=0.95,
+                slots=IntentSlot(
+                    action="replace",
+                    entity_type="time_range",
+                    target="昨天下午16:14之后",
+                    slot_valid=False,
+                ),
+            ),
+        ),
+    )
+
+    report = run(
+        MaiaRecognizer(
+            FakeRecognizer(decision),
+            time_range_extractor=extractor,
+        ).recognize("我想看昨天下午16:14之后的测试记录")
+    )
+
+    assert extractor.calls == [("我想看昨天下午16:14之后的测试记录", "昨天下午16:14之后")]
+    assert report.intents[0].slots["target"] == "start=2026-06-15 16:14:00"
+    assert report.intents[0].slots["slot_valid"] is True
+    assert report.slot_operations[0].target == "start=2026-06-15 16:14:00"
+    assert report.slot_operations[0].slot_valid is True
+
+
+def test_maia_recognizer_marks_ambiguous_time_extractor_result_invalid() -> None:
+    extractor = FakeTimeRangeExtractor(
+        {"前几天": {"kind": "AMBIGUOUS", "source_text": "前几天"}}
+    )
+    decision = IntentDecision(
+        verdict=RecognitionVerdict.CLEAR,
+        intents=(
+            IntentMatch(
+                name="task.nvh.selection.set_time_range",
+                score=0.95,
+                slots=IntentSlot(
+                    action="replace",
+                    entity_type="time_range",
+                    target="前几天",
+                    slot_valid=False,
+                ),
+            ),
+        ),
+    )
+
+    report = run(
+        MaiaRecognizer(
+            FakeRecognizer(decision),
+            time_range_extractor=extractor,
+        ).recognize("查前几天的不合格记录")
+    )
+
+    assert extractor.calls == [("查前几天的不合格记录", "前几天")]
+    assert report.intents[0].slots["target"] == "前几天"
+    assert report.intents[0].slots["slot_valid"] is False
+    assert report.slot_operations[0].target == "前几天"
+    assert report.slot_operations[0].slot_valid is False
+
+
+@pytest.mark.parametrize(
+    ("raw", "expr", "expected"),
+    [
+        (
+            "大前天的记录",
+            {"kind": "RELATIVE_DAY", "source_text": "大前天", "offset_days": -3, "confidence": 0.9},
+            "start=2026-06-13 00:00:00; end=2026-06-13 23:59:59",
+        ),
+        (
+            "上周六的数据",
+            {"kind": "CALENDAR_WEEKDAY", "source_text": "上周六", "week_offset": -1, "weekday": 6, "confidence": 0.9},
+            "start=2026-06-13 00:00:00; end=2026-06-13 23:59:59",
+        ),
+    ],
+)
+def test_maia_recognizer_accepts_valid_structured_time_extractor_results(
+    raw: str,
+    expr: dict[str, object],
+    expected: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from maia.recognition import normalization as normalization_module
+
+    monkeypatch.setattr(
+        normalization_module,
+        "_now",
+        lambda: normalization_module.datetime(2026, 6, 16, 13, 20, 30),
+    )
+    extractor = FakeTimeRangeExtractor({raw: expr})
+    decision = IntentDecision(
+        verdict=RecognitionVerdict.CLEAR,
+        intents=(
+            IntentMatch(
+                name="task.nvh.selection.set_time_range",
+                score=0.95,
+                slots=IntentSlot(
+                    action="replace",
+                    entity_type="time_range",
+                    target=raw,
+                    slot_valid=False,
+                ),
+            ),
+        ),
+    )
+
+    report = run(
+        MaiaRecognizer(
+            FakeRecognizer(decision),
+            time_range_extractor=extractor,
+        ).recognize(f"查{raw}")
+    )
+
+    assert extractor.calls == [(f"查{raw}", raw)]
+    assert report.intents[0].slots["target"] == expected
+    assert report.intents[0].slots["slot_valid"] is True
+    assert report.slot_operations[0].target == expected
+    assert report.slot_operations[0].slot_valid is True
+
+
+def test_maia_recognizer_marks_low_confidence_time_extractor_result_invalid() -> None:
+    extractor = FakeTimeRangeExtractor(
+        {
+            "上上个周二": {
+                "kind": "CALENDAR_WEEKDAY",
+                "source_text": "上上个周二",
+                "week_offset": -2,
+                "weekday": 2,
+                "confidence": 0.7,
+            }
+        }
+    )
+    decision = IntentDecision(
+        verdict=RecognitionVerdict.CLEAR,
+        intents=(
+            IntentMatch(
+                name="task.nvh.selection.set_time_range",
+                score=0.95,
+                slots=IntentSlot(
+                    action="replace",
+                    entity_type="time_range",
+                    target="上上个周二",
+                    slot_valid=False,
+                ),
+            ),
+        ),
+    )
+
+    report = run(
+        MaiaRecognizer(
+            FakeRecognizer(decision),
+            time_range_extractor=extractor,
+        ).recognize("查上上个周二")
+    )
+
+    assert extractor.calls == [("查上上个周二", "上上个周二")]
+    assert report.intents[0].slots["target"] == "上上个周二"
+    assert report.intents[0].slots["slot_valid"] is False
+    assert report.slot_operations[0].target == "上上个周二"
+    assert report.slot_operations[0].slot_valid is False
 
 
 def test_maia_recognizer_revalidates_summary_result_alias_from_business_normalization() -> None:

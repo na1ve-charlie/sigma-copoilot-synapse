@@ -1,12 +1,16 @@
 from __future__ import annotations
 
-import re
-from datetime import datetime, timedelta
+from collections.abc import MutableMapping
+from datetime import datetime
 from typing import Any
 
+from maia.recognition.time_range import (
+    TimeRangeExtractor,
+    normalize_time_range as _normalize_time_range,
+    normalize_time_range_with_extractor,
+    time_range_params,
+)
 
-_TIME_FORMAT = "%Y-%m-%d %H:%M:%S"
-_DATE_FORMAT = "%Y-%m-%d"
 SUMMARY_RESULT_VALUES = (
     "不合格",
     "合格",
@@ -19,16 +23,18 @@ SUMMARY_RESULT_ALIASES = {
     "ng": "不合格",
     "ok": "合格",
 }
-_RANGE_SPLIT_RE = re.compile(r"\s*(?:到|至)\s*")
-_DATETIME_RE = re.compile(r"^\d{4}-\d{2}-\d{2}(?: \d{2}:\d{2}(?::\d{2})?)?$")
-_DATE_ONLY_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
-_RECENT_RE = re.compile(r"^最近(?P<count>\d+|一)(?P<unit>周|天|月|个月|小时)$")
-_CANONICAL_RE = re.compile(
-    r"^(?:start=(?P<start>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}))?"
-    r"(?:; )?"
-    r"(?:end=(?P<end>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}))?$"
+MARKING_RESULT_VALUES = (
+    "合格",
+    "不合格",
+    "无效",
 )
-_SELF_VALIDATING_ENTITY_TYPES = {"summary_result", "time_range", "latest_n"}
+_MARKING_RESULT_ENTITY_TYPES = {"manual_tagging", "status"}
+_SELF_VALIDATING_ENTITY_TYPES = {
+    "summary_result",
+    "time_range",
+    "latest_n",
+    *_MARKING_RESULT_ENTITY_TYPES,
+}
 
 
 def normalize_entity_target(entity_type: str, target: Any) -> Any:
@@ -36,6 +42,8 @@ def normalize_entity_target(entity_type: str, target: Any) -> Any:
         return tuple(normalize_entity_target(entity_type, item) for item in target)
     if entity_type == "summary_result":
         return _normalize_summary_result(target)
+    if entity_type in _MARKING_RESULT_ENTITY_TYPES:
+        return _normalize_marking_result(entity_type, target)
     if entity_type == "time_range":
         return normalize_time_range(target)
     if entity_type == "latest_n":
@@ -68,42 +76,59 @@ def normalize_slot_value(entity_type: str, target: Any, slot_valid: Any) -> tupl
     return normalized_target, bool(slot_valid)
 
 
-def normalize_time_range(target: Any) -> str:
-    if not isinstance(target, str):
-        raise ValueError("time_range target must be text")
-    text = target.strip()
-    if not text:
-        raise ValueError("time_range target must not be blank")
+async def normalize_slot_value_with_time_range_extractor(
+    entity_type: str,
+    target: Any,
+    slot_valid: Any,
+    *,
+    message: str,
+    time_range_extractor: TimeRangeExtractor | None = None,
+    time_range_cache: MutableMapping[str, tuple[Any, bool]] | None = None,
+) -> tuple[Any, Any]:
+    if isinstance(target, tuple) or isinstance(slot_valid, tuple):
+        targets = _as_tuple(target)
+        valids = _as_tuple(slot_valid)
+        size = max(len(targets), len(valids))
+        normalized_targets: list[Any] = []
+        normalized_valids: list[bool] = []
+        for item, valid in zip(_broadcast(targets, size), _broadcast(valids, size), strict=True):
+            normalized_target, normalized_valid = await normalize_slot_value_with_time_range_extractor(
+                entity_type,
+                item,
+                valid,
+                message=message,
+                time_range_extractor=time_range_extractor,
+                time_range_cache=time_range_cache,
+            )
+            normalized_targets.append(normalized_target)
+            normalized_valids.append(bool(normalized_valid))
+        return tuple(normalized_targets), tuple(normalized_valids)
 
-    canonical = _parse_canonical(text)
-    if canonical is not None:
-        return _render_bounds(*canonical)
-    if text.endswith("前"):
-        return _render_bounds(None, _parse_moment(text[:-1].strip(), is_end=False))
-    if text.endswith("后"):
-        return _render_bounds(_parse_moment(text[:-1].strip(), is_end=False), None)
+    if entity_type != "time_range":
+        return normalize_slot_value(entity_type, target, slot_valid)
 
-    parts = _RANGE_SPLIT_RE.split(text, maxsplit=1)
-    if len(parts) == 2:
-        return _render_bounds(
-            _parse_moment(parts[0], is_end=False),
-            _parse_moment(parts[1], is_end=True),
+    cache_key = str(target)
+    if time_range_cache is not None and cache_key in time_range_cache:
+        return time_range_cache[cache_key]
+
+    try:
+        normalized = await normalize_time_range_with_extractor(
+            target,
+            message=message,
+            extractor=time_range_extractor,
+            anchor_time=_now(),
         )
-
-    relative = _parse_relative(text)
-    if relative is not None:
-        return _render_bounds(*relative)
-    raise ValueError(f"unsupported time_range target: {target}")
-
-
-def time_range_params(target: str) -> dict[str, str]:
-    match = _CANONICAL_RE.fullmatch(target.strip())
-    if match is None:
-        raise ValueError(f"invalid canonical time_range target: {target}")
-    result = {key: value for key, value in match.groupdict().items() if value is not None}
-    if not result:
-        raise ValueError(f"invalid canonical time_range target: {target}")
+    except ValueError:
+        result = (target, False)
+    else:
+        result = (normalized, True)
+    if time_range_cache is not None:
+        time_range_cache[cache_key] = result
     return result
+
+
+def normalize_time_range(target: Any) -> str:
+    return _normalize_time_range(target, anchor_time=_now())
 
 
 def _normalize_summary_result(target: Any) -> str:
@@ -116,71 +141,20 @@ def _normalize_summary_result(target: Any) -> str:
     return canonical
 
 
+def _normalize_marking_result(entity_type: str, target: Any) -> str:
+    value = str(target).strip()
+    if not value:
+        raise ValueError(f"{entity_type} target must not be blank")
+    if value not in MARKING_RESULT_VALUES:
+        raise ValueError(f"unsupported {entity_type} target: {target}")
+    return value
+
+
 def _normalize_positive_int(target: Any) -> int:
     value = int(str(target).strip())
     if value < 1:
         raise ValueError("latest_n target must be positive")
     return value
-
-
-def _parse_canonical(text: str) -> tuple[datetime | None, datetime | None] | None:
-    match = _CANONICAL_RE.fullmatch(text)
-    if match is None:
-        return None
-    start = _parse_datetime(match.group("start")) if match.group("start") else None
-    end = _parse_datetime(match.group("end")) if match.group("end") else None
-    return start, end
-
-
-def _parse_relative(text: str) -> tuple[datetime, datetime] | None:
-    now = _now()
-    if text == "今天":
-        return now.replace(hour=0, minute=0, second=0, microsecond=0), now
-    if text == "昨天":
-        start = (now - timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
-        return start, start.replace(hour=23, minute=59, second=59)
-
-    match = _RECENT_RE.fullmatch(text)
-    if match is None:
-        return None
-    count = 1 if match.group("count") == "一" else int(match.group("count"))
-    unit = match.group("unit")
-    if unit == "周":
-        delta = timedelta(days=7 * count)
-    elif unit == "天":
-        delta = timedelta(days=count)
-    elif unit in {"月", "个月"}:
-        delta = timedelta(days=30 * count)
-    else:
-        delta = timedelta(hours=count)
-    return now - delta, now
-
-
-def _parse_moment(text: str, *, is_end: bool) -> datetime:
-    normalized = text.strip()
-    if not _DATETIME_RE.fullmatch(normalized):
-        raise ValueError(f"unsupported datetime target: {text}")
-    if _DATE_ONLY_RE.fullmatch(normalized):
-        day = datetime.strptime(normalized, _DATE_FORMAT)
-        return day.replace(hour=23, minute=59, second=59) if is_end else day
-    if len(normalized) == 16:
-        normalized = f"{normalized}:00"
-    return _parse_datetime(normalized)
-
-
-def _parse_datetime(text: str) -> datetime:
-    return datetime.strptime(text, _TIME_FORMAT)
-
-
-def _render_bounds(start: datetime | None, end: datetime | None) -> str:
-    parts: list[str] = []
-    if start is not None:
-        parts.append(f"start={start.strftime(_TIME_FORMAT)}")
-    if end is not None:
-        parts.append(f"end={end.strftime(_TIME_FORMAT)}")
-    if not parts:
-        raise ValueError("time_range must include start or end")
-    return "; ".join(parts)
 
 
 def _now() -> datetime:
@@ -202,6 +176,7 @@ def _broadcast(values: tuple[Any, ...], size: int) -> tuple[Any, ...]:
 __all__ = [
     "normalize_entity_target",
     "normalize_slot_value",
+    "normalize_slot_value_with_time_range_extractor",
     "normalize_time_range",
     "SUMMARY_RESULT_ALIASES",
     "SUMMARY_RESULT_VALUES",
