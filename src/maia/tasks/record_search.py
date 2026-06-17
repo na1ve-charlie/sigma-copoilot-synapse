@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Protocol
 
 from maia.api import ClarifyPlan, PlanDataset, TaskPlan, WorkspaceContext
@@ -33,6 +34,13 @@ from maia.tasks.record_search_replies import (
 from maia.tasks.router import TaskContext, TaskResult
 
 
+@dataclass(frozen=True)
+class RecordSelectionResult:
+    state: ConversationSelectionState
+    selection: SelectionSet | None = None
+    clarify: ClarifyPlan | None = None
+
+
 class DatasetBindingStore(Protocol):
     def load_dataset_binding(self, session_id: str): ...
     def save_dataset_binding(self, session_id: str, binding): ...
@@ -60,36 +68,62 @@ class RecordSearchHandler:
         return bool(context.request.prompt_replies) or _is_record_search(context.report)
 
     async def handle(self, context: TaskContext) -> TaskResult:
+        result = await self.resolve_selection(context)
+        if result.clarify is not None:
+            return TaskResult(plan=result.clarify, state=result.state)
+        if result.selection is None:
+            return TaskResult(
+                plan=self._with_dataset(
+                    ClarifyPlan(
+                        reason="ambiguous_slots",
+                        message="No records matched the current selection.",
+                    ),
+                    context,
+                ),
+                state=result.state,
+            )
+        return TaskResult(
+            plan=_record_search_task_plan(
+                result.selection,
+                self.dataset_for(context, state=result.state, selection=result.selection),
+            ),
+            state=result.state,
+        )
+
+    async def resolve_selection(
+        self,
+        context: TaskContext,
+        *,
+        complete_type_system: bool = True,
+    ) -> RecordSelectionResult:
         try:
             report = self._report_for_context(context)
             base = self._resolve_base_selection(report, context.state)
             draft = self._build_draft(report, context.state, base, request=context.request)
         except (SelectionReferenceResolutionError, ValueError) as exc:
-            return TaskResult(
-                plan=self._with_dataset(
+            return RecordSelectionResult(
+                clarify=self._with_dataset(
                     ClarifyPlan(reason="ambiguous_slots", message=str(exc)),
                     context,
                 ),
                 state=context.state,
             )
 
-        draft, clarify = await self._complete_product_filters(context, draft)
+        draft, clarify = await self._complete_product_filters(
+            context,
+            draft,
+            complete_type_system=complete_type_system,
+        )
         if clarify is not None:
             pending_draft = mark_pending_prompts(draft, clarify)
-            return TaskResult(
-                plan=self._with_dataset(clarify, context, draft=pending_draft),
+            return RecordSelectionResult(
+                clarify=self._with_dataset(clarify, context, draft=pending_draft),
                 state=self._selection_store.save_pending(context.state, pending_draft),
             )
 
         selection = await self.materialize_selection(context, draft, base=base)
         next_state = self._selection_store.activate(context.state, selection.selection_set_id)
-        return TaskResult(
-            plan=_record_search_task_plan(
-                selection,
-                self.dataset_for(context, state=next_state, selection=selection),
-            ),
-            state=next_state,
-        )
+        return RecordSelectionResult(state=next_state, selection=selection)
 
     async def materialize_selection(
         self,
@@ -224,6 +258,8 @@ class RecordSearchHandler:
         self,
         context: TaskContext,
         draft: SelectionDraft,
+        *,
+        complete_type_system: bool,
     ) -> tuple[SelectionDraft, ClarifyPlan | None]:
         product_records = await self._records_for_scope(
             draft,
@@ -253,6 +289,8 @@ class RecordSearchHandler:
         )
         if clarify is not None or not config_versions:
             return draft, clarify
+        if not complete_type_system:
+            return draft, None
 
         system_records = await self._records_for_scope(
             draft,
@@ -374,4 +412,4 @@ def _record_search_task_plan(selection: SelectionSet, dataset: PlanDataset) -> T
     )
 
 
-__all__ = ["RecordSearchHandler"]
+__all__ = ["RecordSearchHandler", "RecordSelectionResult"]
