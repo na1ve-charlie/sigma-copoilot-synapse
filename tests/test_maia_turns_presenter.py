@@ -9,6 +9,7 @@ def test_turn_presenter_wraps_plan_without_internal_result_fields() -> None:
 
     assert response.model_dump(mode="json") == {
         "plan": {
+            "dataset": {},
             "kind": "reply",
             "message": "Available sensors.",
             "data": {},
@@ -23,6 +24,7 @@ def test_turn_presenter_accepts_plain_plan_mapping() -> None:
 
     assert response.model_dump(mode="json") == {
         "plan": {
+            "dataset": {},
             "kind": "confirm",
             "reason": "risk",
             "message": "ok",

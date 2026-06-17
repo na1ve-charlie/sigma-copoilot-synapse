@@ -38,34 +38,40 @@ def test_turns_response_contract_keeps_public_wrapper_and_kind_list() -> None:
 def test_turns_response_contract_locks_frontend_visible_plan_shapes() -> None:
     contract = _load_yaml(CONTRACT_PATH)
 
-    assert contract["kind_shapes"]["reply"]["required_fields"] == ["kind", "message"]
+    assert contract["kind_shapes"]["reply"]["required_fields"] == ["kind", "message", "dataset"]
     assert contract["kind_shapes"]["clarify"]["required_fields"] == [
         "kind",
         "reason",
         "message",
+        "dataset",
     ]
     assert contract["kind_shapes"]["task"]["required_fields"] == [
         "kind",
         "status",
         "name",
+        "intent",
         "title",
         "risk_level",
         "requires_confirmation",
         "params",
         "message",
+        "dataset",
     ]
     assert contract["kind_shapes"]["confirm"]["required_fields"] == [
         "kind",
         "reason",
         "message",
+        "dataset",
     ]
     assert contract["kind_shapes"]["context_update"]["required_fields"] == [
         "kind",
         "message",
+        "dataset",
     ]
     assert contract["kind_shapes"]["context_clear"]["required_fields"] == [
         "kind",
         "message",
+        "dataset",
     ]
     assert contract["kind_shapes"]["clarify"]["prompt_shape"]["required_fields"] == [
         "id",
@@ -77,6 +83,9 @@ def test_turns_response_contract_locks_frontend_visible_plan_shapes() -> None:
     ]
     assert contract["slot_state_diff"]["required_fields"] == ["changes"]
     assert contract["slot_state_diff"]["change_shape"] == ["slot", "before", "after"]
+    assert contract["dataset"]["empty_allowed"] is True
+    assert "selection_params" in contract["dataset"]["fields"]
+    assert contract["dataset"]["selection_params_excluded_fields"] == ["page", "rows"]
 
 
 def test_turns_response_samples_cover_all_plan_kinds_and_public_wrapper_only() -> None:

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Literal, Mapping, TypeAlias
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_serializer, model_validator
 
 
 RiskLevel: TypeAlias = Literal["low", "medium", "high"]
@@ -85,7 +85,43 @@ class Prompt(ContractModel):
     candidates: list[PromptCandidate] = Field(default_factory=list)
 
 
-class ReplyPlan(ContractModel):
+class PlanDataset(ContractModel):
+    selection_set_id: str | None = None
+    selection_hash: str | None = None
+    dataset_id: str | None = None
+    dataset_name: str | None = None
+    record_count: int | None = None
+    record_ids: list[str] = Field(default_factory=list)
+    selection_params: dict[str, Any] = Field(default_factory=dict)
+
+    @model_serializer(mode="plain")
+    def _serialize(self) -> dict[str, Any]:
+        if (
+            self.selection_set_id is None
+            and self.selection_hash is None
+            and self.dataset_id is None
+            and self.dataset_name is None
+            and self.record_count is None
+            and not self.record_ids
+            and not self.selection_params
+        ):
+            return {}
+        return {
+            "selection_set_id": self.selection_set_id,
+            "selection_hash": self.selection_hash,
+            "dataset_id": self.dataset_id,
+            "dataset_name": self.dataset_name,
+            "record_count": self.record_count,
+            "record_ids": self.record_ids,
+            "selection_params": self.selection_params,
+        }
+
+
+class PlanWithDataset(ContractModel):
+    dataset: PlanDataset = Field(default_factory=PlanDataset)
+
+
+class ReplyPlan(PlanWithDataset):
     kind: Literal["reply"] = "reply"
     message: str
     data: dict[str, Any] = Field(default_factory=dict)
@@ -93,7 +129,7 @@ class ReplyPlan(ContractModel):
     slot_state_diff: SlotStateDiff = Field(default_factory=SlotStateDiff)
 
 
-class ClarifyPlan(ContractModel):
+class ClarifyPlan(PlanWithDataset):
     kind: Literal["clarify"] = "clarify"
     reason: ClarifyReason
     message: str
@@ -123,7 +159,7 @@ class ClarifyPlan(ContractModel):
         return self
 
 
-class ConfirmPlan(ContractModel):
+class ConfirmPlan(PlanWithDataset):
     kind: Literal["confirm"] = "confirm"
     reason: str
     message: str
@@ -131,14 +167,14 @@ class ConfirmPlan(ContractModel):
     slot_state_diff: SlotStateDiff = Field(default_factory=SlotStateDiff)
 
 
-class ContextUpdatePlan(ContractModel):
+class ContextUpdatePlan(PlanWithDataset):
     kind: Literal["context_update"] = "context_update"
     message: str
     projected_slots: dict[str, Any] = Field(default_factory=dict)
     slot_state_diff: SlotStateDiff = Field(default_factory=SlotStateDiff)
 
 
-class ContextClearPlan(ContractModel):
+class ContextClearPlan(PlanWithDataset):
     kind: Literal["context_clear"] = "context_clear"
     message: str = "Context cleared."
     preserved: list[str] = Field(default_factory=lambda: ["workspace_context"])
@@ -146,10 +182,11 @@ class ContextClearPlan(ContractModel):
     slot_state_diff: SlotStateDiff = Field(default_factory=SlotStateDiff)
 
 
-class TaskPlan(ContractModel):
+class TaskPlan(PlanWithDataset):
     kind: Literal["task"] = "task"
     status: TaskStatus
     name: str
+    intent: str
     title: str
     risk_level: RiskLevel
     requires_confirmation: bool
@@ -178,6 +215,7 @@ __all__ = [
     "ConfirmPlan",
     "ContextClearPlan",
     "ContextUpdatePlan",
+    "PlanDataset",
     "ProductContext",
     "Prompt",
     "PromptCandidate",

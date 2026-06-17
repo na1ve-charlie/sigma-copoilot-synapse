@@ -5,6 +5,7 @@ cases:
       plan:
         kind: reply
         message: Available sensors.
+        dataset: {}
         data:
           slot_name: sensors
           candidates: [S1, S2, S3]
@@ -18,6 +19,7 @@ cases:
         kind: clarify
         reason: missing_slots
         message: Please choose a sensor.
+        dataset: {}
         pending_task: query_frequency_spectrum
         missing_slots: [sensors]
         prompts:
@@ -42,9 +44,11 @@ cases:
         kind: task
         status: ready
         name: query_frequency_spectrum
+        intent: task.nvh.data_observation.batch.frequency_spectrum
         title: Query frequency spectrum
         risk_level: low
         requires_confirmation: false
+        dataset: {}
         params:
           sensors: [S1]
           test_segments: [TS-01]
@@ -65,6 +69,7 @@ cases:
         kind: confirm
         reason: high_risk_operation
         message: Confirm deletion of the selected records.
+        dataset: {}
         payload:
           operation: data_delete
           selection_summary:
@@ -77,6 +82,7 @@ cases:
       plan:
         kind: context_update
         message: Context updated.
+        dataset: {}
         projected_slots:
           sensors: [S2]
         slot_state_diff:
@@ -90,6 +96,7 @@ cases:
       plan:
         kind: context_clear
         message: Context cleared.
+        dataset: {}
         preserved: [workspace_context]
         cleared: [sensors, indicator_names]
         slot_state_diff:

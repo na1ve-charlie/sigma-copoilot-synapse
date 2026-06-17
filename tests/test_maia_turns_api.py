@@ -45,6 +45,7 @@ def test_maia_app_uses_composition_root_when_flag_is_enabled(monkeypatch) -> Non
     assert response.status_code == 200
     assert response.json() == {
         "plan": {
+            "dataset": {},
             "kind": "reply",
             "message": "ok",
             "data": {},

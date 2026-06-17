@@ -26,10 +26,10 @@ plan_kinds:
   - context_clear
 kind_shapes:
   reply:
-    required_fields: [kind, message]
+    required_fields: [kind, message, dataset]
     optional_fields: [data, suggestions, slot_state_diff]
   clarify:
-    required_fields: [kind, reason, message]
+    required_fields: [kind, reason, message, dataset]
     optional_fields:
       [pending_task, missing_slots, invalid_slots, prompts, suggestions, slot_state_diff]
     prompt_shape:
@@ -38,22 +38,28 @@ kind_shapes:
       candidate_fields: [value, label]
   task:
     required_fields:
-      [kind, status, name, title, risk_level, requires_confirmation, params, message]
+      [kind, status, name, intent, title, risk_level, requires_confirmation, params, message, dataset]
     optional_fields: [reason, slot_state_diff]
   confirm:
-    required_fields: [kind, reason, message]
+    required_fields: [kind, reason, message, dataset]
     optional_fields: [payload, slot_state_diff]
   context_update:
-    required_fields: [kind, message]
+    required_fields: [kind, message, dataset]
     optional_fields: [projected_slots, slot_state_diff]
   context_clear:
-    required_fields: [kind, message]
+    required_fields: [kind, message, dataset]
     optional_fields: [preserved, cleared, slot_state_diff]
+dataset:
+  empty_allowed: true
+  fields:
+    [selection_set_id, selection_hash, dataset_id, dataset_name, record_count, record_ids, selection_params]
+  selection_params_excluded_fields: [page, rows]
 slot_state_diff:
   required_fields: [changes]
   change_shape: [slot, before, after]
 compatibility_rules:
   - plan kinds stay reply, clarify, task, confirm, context_update, context_clear
   - "`task.status` stays public inside `plan`; top-level status stays forbidden"
+  - "`dataset` stays nested under `plan` for every plan kind"
   - "`slot_state_diff` stays nested under `plan`"
   - the contract must not expose SelectionSet, confirmation tokens, or other future internals

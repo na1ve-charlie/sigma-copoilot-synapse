@@ -4,7 +4,7 @@ from dataclasses import dataclass
 import os
 from typing import Any, Protocol
 
-from maia.api import ClarifyPlan, ReplyPlan, TurnRequest, TurnResponse
+from maia.api import ClarifyPlan, PlanDataset, ReplyPlan, TaskPlan, TurnRequest, TurnResponse
 from maia.conversation.draft import SelectionDraft, SelectionDraftReducer, SelectionSort
 from maia.conversation.references import SelectionReferenceResolutionError, SelectionReferenceResolver
 from maia.conversation.state import ConversationSelectionState, PendingSelectionStateStore
@@ -16,7 +16,7 @@ from maia.integrations.sigma import (
     TestRecordClient,
 )
 from maia.integrations.sigma.product_catalog import ProductConfig
-from maia.presentation import present_turn
+from maia.presentation import DatasetProjector, present_turn
 from maia.recognition import RecognitionReport, build_maia_recognizer_from_config
 from maia.recognition.normalization import (
     MARKING_RESULT_VALUES,
@@ -121,6 +121,7 @@ class MaiaTurnHandler:
         self._draft_reducer = SelectionDraftReducer()
         self._selection_store = PendingSelectionStateStore()
         self._reference_resolver = SelectionReferenceResolver(selection_repository)
+        self._dataset_projector = DatasetProjector()
 
     async def handle_turn(self, request: TurnRequest) -> TurnResponse:
         state = self._state_repository.load(request.session_id)
@@ -132,23 +133,43 @@ class MaiaTurnHandler:
                 product_configs,
             )
         except ValueError as exc:
-            return present_turn(ClarifyPlan(reason="ambiguous_slots", message=str(exc)))
+            return present_turn(
+                self._with_dataset(
+                    ClarifyPlan(reason="ambiguous_slots", message=str(exc)),
+                    request,
+                    state,
+                )
+            )
         if report.verdict == "low":
             return present_turn(
-                ClarifyPlan(
-                    reason="low_confidence",
-                    message="I could not identify a supported Maia request.",
+                self._with_dataset(
+                    ClarifyPlan(
+                        reason="low_confidence",
+                        message="I could not identify a supported Maia request.",
+                    ),
+                    request,
+                    state,
                 )
             )
         if report.requires_confirmation or report.verdict == "ambiguous":
             return present_turn(
-                ClarifyPlan(
-                    reason="ambiguous_intent",
-                    message="Please clarify which request you want Maia to run.",
+                self._with_dataset(
+                    ClarifyPlan(
+                        reason="ambiguous_intent",
+                        message="Please clarify which request you want Maia to run.",
+                    ),
+                    request,
+                    state,
                 )
             )
         if not _is_record_search(report):
-            return present_turn(ReplyPlan(message="Maia currently supports record search only."))
+            return present_turn(
+                self._with_dataset(
+                    ReplyPlan(message="Maia currently supports record search only."),
+                    request,
+                    state,
+                )
+            )
 
         clear_product_type = is_all_product_types_request(
             request.message
@@ -162,7 +183,13 @@ class MaiaTurnHandler:
                 clear_product_type=clear_product_type,
             )
         except (SelectionReferenceResolutionError, ValueError) as exc:
-            return present_turn(ClarifyPlan(reason="ambiguous_slots", message=str(exc)))
+            return present_turn(
+                self._with_dataset(
+                    ClarifyPlan(reason="ambiguous_slots", message=str(exc)),
+                    request,
+                    state,
+                )
+            )
 
         draft, clarify = await self._complete_product_filters(
             request,
@@ -175,7 +202,9 @@ class MaiaTurnHandler:
                 request.session_id,
                 self._selection_store.save_pending(state, draft),
             )
-            return present_turn(clarify)
+            return present_turn(
+                self._with_dataset(clarify, request, state, draft=draft)
+            )
 
         selection = await self._materialize_selection(
             request,
@@ -187,7 +216,8 @@ class MaiaTurnHandler:
             request.session_id,
             self._selection_store.activate(state, selection.selection_set_id),
         )
-        return present_turn(_reply_plan(selection))
+        dataset = self._dataset_for(request, state, selection=selection)
+        return present_turn(_record_search_task_plan(selection, dataset))
 
     async def _materialize_selection(
         self,
@@ -213,7 +243,11 @@ class MaiaTurnHandler:
             materialized_dataset_name=None if binding is None else binding.dataset_name,
         )
         if selection.dataset_id is not None:
-            dataset_name = _dataset_name(selection) if binding is None else binding.dataset_name
+            dataset_name = (
+                self._dataset_projector.dataset_name(selection)
+                if binding is None
+                else binding.dataset_name
+            )
             self._state_repository.save_dataset_binding(
                 request.session_id,
                 SessionDatasetBinding(
@@ -357,6 +391,61 @@ class MaiaTurnHandler:
             )
         ).records
 
+    def _with_dataset(
+        self,
+        plan: Any,
+        request: TurnRequest,
+        state: ConversationSelectionState,
+        *,
+        draft: SelectionDraft | None = None,
+        selection: SelectionSet | None = None,
+    ) -> Any:
+        return plan.model_copy(
+            update={"dataset": self._dataset_for(request, state, draft=draft, selection=selection)}
+        )
+
+    def _dataset_for(
+        self,
+        request: TurnRequest,
+        state: ConversationSelectionState,
+        *,
+        draft: SelectionDraft | None = None,
+        selection: SelectionSet | None = None,
+    ) -> PlanDataset:
+        if selection is not None:
+            return self._dataset_projector.from_selection(
+                selection,
+                workspace_context=request.workspace_context,
+                dataset_name=self._dataset_name_for_session(request.session_id, selection),
+            )
+        if draft is not None:
+            return self._dataset_projector.from_draft(
+                draft,
+                workspace_context=request.workspace_context,
+            )
+        if state.active_selection_set_id is None:
+            return PlanDataset()
+        active = self._selection_repository.get(state.active_selection_set_id)
+        if active is None:
+            return PlanDataset()
+        return self._dataset_projector.from_selection(
+            active,
+            workspace_context=request.workspace_context,
+            dataset_name=self._dataset_name_for_session(request.session_id, active),
+        )
+
+    def _dataset_name_for_session(
+        self,
+        session_id: str,
+        selection: SelectionSet,
+    ) -> str:
+        binding = self._state_repository.load_dataset_binding(session_id)
+        return (
+            binding.dataset_name
+            if binding is not None and selection.dataset_id == binding.dataset_id
+            else self._dataset_projector.dataset_name(selection)
+        )
+
 
 def create_maia_runtime(
     *,
@@ -444,22 +533,17 @@ def _draft_matches_selection(draft: SelectionDraft, selection: SelectionSet) -> 
     )
 
 
-def _dataset_name(selection: SelectionSet) -> str:
-    return f"maia-{selection.selection_hash[:12]}"
-
-
-def _reply_plan(selection: SelectionSet) -> ReplyPlan:
-    data = {
-        "selection_set_id": selection.selection_set_id,
-        "selection_hash": selection.selection_hash,
-        "record_count": selection.record_count,
-        "record_ids": list(selection.record_ids or ()),
-    }
-    if selection.dataset_id is not None:
-        data["dataset_id"] = selection.dataset_id
-    return ReplyPlan(
+def _record_search_task_plan(selection: SelectionSet, dataset: PlanDataset) -> TaskPlan:
+    return TaskPlan(
+        status="ready",
+        name="task.nvh.record_search",
+        intent="task.nvh.record_search",
+        title="Record search",
+        risk_level="low",
+        requires_confirmation=False,
+        params={},
         message=f"Found {selection.record_count} records.",
-        data=data,
+        dataset=dataset,
     )
 
 
