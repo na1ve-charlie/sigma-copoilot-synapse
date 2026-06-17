@@ -8,6 +8,7 @@ from maia.api import ClarifyPlan, TurnRequest, TurnResponse
 from maia.conversation.state import ConversationSelectionState
 from maia.integrations.sigma import (
     MutableSigmaTokenProvider,
+    OriginExportClient,
     SigmaProductCatalogClient,
     SigmaSelectionSetMaterializer,
     SigmaTokenProvider,
@@ -24,6 +25,7 @@ from maia.recognition.normalization import (
 from maia.selection import InMemorySelectionSetRepository
 from maia.selection.compiler import SelectionQueryCompiler
 from maia.selection.service import SelectionSetMaterializer, SelectionSetService
+from maia.tasks.origin_data_export import OriginDataExportHandler
 from maia.tasks.record_search import RecordSearchHandler
 from maia.tasks.record_search_filters import distinct_values
 from maia.tasks.router import TaskContext, TaskRouter
@@ -92,6 +94,7 @@ class MaiaTurnHandler:
         selection_compiler: SelectionQueryCompiler,
         selection_repository: InMemorySelectionSetRepository,
         product_catalog: ProductCatalog | None = None,
+        origin_export_client: object | None = None,
     ) -> None:
         self._recognizer = recognizer
         self._state_repository = state_repository
@@ -99,21 +102,31 @@ class MaiaTurnHandler:
         self._selection_compiler = selection_compiler
         self._selection_repository = selection_repository
         self._product_catalog = product_catalog
+        record_search_handler = RecordSearchHandler(
+            selection_service=selection_service,
+            selection_compiler=selection_compiler,
+            selection_repository=selection_repository,
+            dataset_binding_store=state_repository,
+        )
         self._task_router = TaskRouter(
             (
-                RecordSearchHandler(
-                    selection_service=selection_service,
-                    selection_compiler=selection_compiler,
+                OriginDataExportHandler(
+                    record_search=record_search_handler,
                     selection_repository=selection_repository,
-                    dataset_binding_store=state_repository,
+                    exporter=origin_export_client,
                 ),
+                record_search_handler,
             )
         )
 
     async def handle_turn(self, request: TurnRequest) -> TurnResponse:
         state = self._state_repository.load(request.session_id)
         product_configs = await self._product_configs(request)
-        report = await self._recognize(request, product_configs)
+        report = (
+            _empty_report(request)
+            if request.prompt_replies or state.pending_confirmation is not None
+            else await self._recognize(request, product_configs)
+        )
         if report.verdict == "low":
             return present_turn(
                 ClarifyPlan(
@@ -145,13 +158,6 @@ class MaiaTurnHandler:
         request: TurnRequest,
         product_configs: tuple[ProductConfig, ...],
     ) -> RecognitionReport:
-        if request.prompt_replies:
-            return RecognitionReport(
-                message=request.message,
-                verdict="clear",
-                requires_confirmation=False,
-                degraded=False,
-            )
         report = await self._recognizer.recognize(
             request.message,
             resolver=_TurnResolver(product_configs),
@@ -168,6 +174,7 @@ def create_maia_runtime(
     selection_repository: InMemorySelectionSetRepository | None = None,
     product_catalog: ProductCatalog | None = None,
     selection_materializer: SelectionSetMaterializer | None = None,
+    origin_export_client: object | None = None,
     token_provider: SigmaTokenProvider | None = None,
     source_version: str = "sigma-legacy-v1",
     base_url: str | None = None,
@@ -189,6 +196,10 @@ def create_maia_runtime(
             base_url=sigma_base_url,
             token_provider=sigma_token_provider,
         )
+    origin_export_client = origin_export_client or OriginExportClient(
+        base_url=sigma_base_url,
+        token_provider=sigma_token_provider,
+    )
     selection_compiler = SelectionQueryCompiler(record_client)
     return MaiaTurnHandler(
         recognizer=recognizer or build_maia_recognizer_from_config(),
@@ -196,6 +207,7 @@ def create_maia_runtime(
         selection_repository=selection_repository,
         selection_compiler=selection_compiler,
         product_catalog=product_catalog,
+        origin_export_client=origin_export_client,
         selection_service=SelectionSetService(
             selection_repository,
             selection_compiler,
@@ -223,6 +235,15 @@ class _TurnResolver:
     ) -> list[str]:
         del context
         return list(self._values.get(entity_type, ()))
+
+
+def _empty_report(request: TurnRequest) -> RecognitionReport:
+    return RecognitionReport(
+        message=request.message,
+        verdict="clear",
+        requires_confirmation=False,
+        degraded=False,
+    )
 
 
 __all__ = ["ConversationStateRepository", "MaiaTurnHandler", "create_maia_runtime"]
