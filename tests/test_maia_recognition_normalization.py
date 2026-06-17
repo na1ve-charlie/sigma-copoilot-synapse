@@ -265,6 +265,38 @@ def test_normalize_time_range_accepts_partial_ranges_boundaries_and_since(
     assert normalize_time_range(raw, anchor_time=datetime(2026, 6, 16, 13, 20, 30)) == expected
 
 
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [
+        ("本月六号", "start=2026-06-06 00:00:00; end=2026-06-06 23:59:59"),
+        ("去年六月", "start=2025-06-01 00:00:00; end=2025-06-30 23:59:59"),
+        ("今年二月", "start=2026-02-01 00:00:00; end=2026-02-28 23:59:59"),
+        ("一月", "start=2026-01-01 00:00:00; end=2026-01-31 23:59:59"),
+        ("一月份", "start=2026-01-01 00:00:00; end=2026-01-31 23:59:59"),
+        ("今年上半年", "start=2026-01-01 00:00:00; end=2026-06-30 23:59:59"),
+        ("今年下半年", "start=2026-07-01 00:00:00; end=2026-12-31 23:59:59"),
+        ("6月11号及之后", "start=2026-06-11 00:00:00"),
+        ("20260704及之后", "start=2026-07-04 00:00:00"),
+        ("11月5号及之前", "end=2026-11-05 23:59:59"),
+        ("截止20260421", "end=2026-04-21 23:59:59"),
+        ("截止到12月25号", "end=2026-12-25 23:59:59"),
+        ("截至八月二十七号", "end=2026-08-27 23:59:59"),
+        ("今年起截止到12月25号", "start=2026-01-01 00:00:00; end=2026-12-25 23:59:59"),
+        ("从2026.01.30到现在", "start=2026-01-30 00:00:00; end=2026-06-17 12:00:00"),
+    ],
+)
+def test_normalize_time_range_accepts_deterministic_chinese_predicates(
+    raw: str,
+    expected: str,
+) -> None:
+    assert normalize_time_range(raw, anchor_time=datetime(2026, 6, 17, 12, 0, 0)) == expected
+
+
+def test_normalize_time_range_rejects_reversed_since_range() -> None:
+    with pytest.raises(ValueError):
+        normalize_time_range("七月十五号以来", anchor_time=datetime(2026, 6, 17, 12, 0, 0))
+
+
 @pytest.mark.parametrize("raw", ["1361", "0230", "13月", "6月32号"])
 def test_normalize_time_range_rejects_invalid_partial_datetime(raw: str) -> None:
     with pytest.raises(ValueError):
