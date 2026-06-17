@@ -19,7 +19,7 @@ def test_maia_intent_files_cover_first_batch_actions_and_selection_slots() -> No
 
     assert {
         "task.nvh.record_search",
-        "task.nvh.data_export",
+        "task.nvh.origin_data_export",
         "task.nvh.data_backup",
         "task.nvh.data_delete",
         "task.nvh.data_observation.batch.frequency_spectrum",
@@ -65,8 +65,7 @@ def test_maia_calibration_cases_cover_goal_examples_and_declared_intents() -> No
     ]
     assert cases["导出 A 型号的原始数据"]["expected"] == [
         "task.nvh.selection.set_product_type",
-        "task.nvh.selection.set_data_kind",
-        "task.nvh.data_export",
+        "task.nvh.origin_data_export",
     ]
     assert cases["删除上面这些数据"]["expected"] == [
         "task.nvh.selection.use_active_selection",
@@ -112,7 +111,7 @@ def test_default_maia_recognizer_config_now_loads_first_batch_intents(
     assert {entry.name for entry in created["entries"]}.issuperset(
         {
             "task.nvh.record_search",
-            "task.nvh.data_export",
+            "task.nvh.origin_data_export",
             "task.nvh.selection.set_time_range",
             "task.nvh.selection.use_active_selection",
         }

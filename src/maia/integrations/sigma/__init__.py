@@ -27,6 +27,13 @@ from maia.integrations.sigma.record_client import (
     TestRecordClient,
     TestRecordClientError,
 )
+from maia.integrations.sigma.origin_export import (
+    ORIGIN_EXPORT_PATH,
+    OriginExportClient,
+    OriginExportError,
+    OriginExportRequest,
+    OriginExportTransport,
+)
 from maia.integrations.sigma.request_mapper import (
     LegacyRecordRequestMapper,
     LegacyRecordRequestParams,
@@ -50,6 +57,11 @@ __all__ = [
     "LIST_PRODUCT_VERSIONS_OPERATION",
     "LIST_TEST_RECORDS_OPERATION",
     "MutableSigmaTokenProvider",
+    "ORIGIN_EXPORT_PATH",
+    "OriginExportClient",
+    "OriginExportError",
+    "OriginExportRequest",
+    "OriginExportTransport",
     "PRODUCT_CONFIGS_PATH",
     "PRODUCT_SYSTEMS_PATH",
     "PRODUCT_VERSIONS_PATH",

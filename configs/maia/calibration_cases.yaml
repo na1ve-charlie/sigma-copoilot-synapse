@@ -13,13 +13,11 @@ cases:
   - message: "导出 A 型号的原始数据"
     expected:
       - "task.nvh.selection.set_product_type"
-      - "task.nvh.selection.set_data_kind"
-      - "task.nvh.data_export"
+      - "task.nvh.origin_data_export"
     slots:
       - {action: "replace", entity_type: "product_type", target: "A"}
-      - {action: "replace", entity_type: "data_kind", target: "raw"}
       - {}
-    note: "Goal 示例：导出动作 + 型号/数据类型"
+    note: "Goal 示例：原始数据导出动作 + 型号筛选"
 
   - message: "Vib1 或 Vib2 任意一个不合格"
     expected:

@@ -30,14 +30,13 @@ def test_pending_task_state_resumes_alongside_pending_selection() -> None:
             ]
         ),
     )
-    pending_task = builder.build(_report(actions=["task.nvh.data_export"]), selection)
+    pending_task = builder.build(_report(actions=["task.nvh.origin_data_export"]), selection)
     state = selection_store.save_pending(ConversationSelectionState(), draft)
     state = task_store.save_pending(state, pending_task)
 
     follow_up = _report(
         operations=[
             {"action": "add", "entity_type": "summary_result", "target": "FAIL"},
-            {"action": "replace", "entity_type": "data_kind", "target": "raw_data"},
         ]
     )
 
@@ -48,20 +47,19 @@ def test_pending_task_state_resumes_alongside_pending_selection() -> None:
     assert tuple(predicate.name for predicate in iter_predicates(resumed_draft.expression)) == (
         "product_type_in",
         "summary_result_in",
-        "data_kind_in",
     )
     assert isinstance(resumed_task, TaskSpec)
-    assert resumed_task.params == {"data_kind": "raw_data"}
+    assert resumed_task.params == {}
     assert resumed_task.selection_hash == selection.selection_hash
 
 
 def test_pending_task_state_rebases_saved_task_to_new_selection() -> None:
     from maia.conversation.state import ConversationSelectionState, ConversationTaskStateStore
-    from maia.tasks import PendingTask, TaskSpecBuilder
+    from maia.tasks import TaskSpec, TaskSpecBuilder
 
     task_store = ConversationTaskStateStore()
     builder = TaskSpecBuilder(id_factory=iter(("task-1",)).__next__)
-    pending_task = builder.build(_report(actions=["task.nvh.data_export"]), _selection_set("sel-1", ("r-1", "r-2")))
+    pending_task = builder.build(_report(actions=["task.nvh.origin_data_export"]), _selection_set("sel-1", ("r-1", "r-2")))
     state = task_store.save_pending(ConversationSelectionState(), pending_task)
 
     rebased = task_store.rebase(
@@ -70,7 +68,7 @@ def test_pending_task_state_rebases_saved_task_to_new_selection() -> None:
         builder=builder,
     )
 
-    assert isinstance(rebased.pending_task, PendingTask)
+    assert isinstance(rebased.pending_task, TaskSpec)
     assert rebased.pending_task.selection_set_id == "sel-2"
     assert rebased.pending_task.selection_hash == _selection_set("sel-2", ("r-2",)).selection_hash
     assert rebased.version == 2

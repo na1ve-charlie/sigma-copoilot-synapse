@@ -20,21 +20,17 @@ cases:
       diagnostics: {}
 
   - message: 导出 A 型号的原始数据
-    focus: export action + product/data-kind slots
+    focus: origin data export action + product slot
     expected_report:
       verdict: clear
       requires_confirmation: false
       degraded: false
       action_intents:
-        - name: task.nvh.data_export
+        - name: task.nvh.origin_data_export
       slot_operations:
         - entity_type: product_type
           action: replace
           target: A
-          slot_valid: true
-        - entity_type: data_kind
-          action: replace
-          target: raw
           slot_valid: true
       diagnostics: {}
 

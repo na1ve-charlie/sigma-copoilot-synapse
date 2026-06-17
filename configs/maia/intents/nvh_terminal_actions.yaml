@@ -3,10 +3,10 @@ intents:
   domain: nvh.search
   embed_text: 查找记录, 查询记录, 搜索数据, 找不合格记录, 查最近的数据, record search
   tree_text: 用户想按当前或新给出的筛选条件查询记录列表，不是在请求导出、删除、报告、音频或重计算。
-- name: task.nvh.data_export
-  domain: nvh.data_management
-  embed_text: 导出数据, 导出原始数据, 导出结果数据, export data, 下载数据包
-  tree_text: 用户想导出当前筛选范围内的数据。区分：下载报告属于 report.download，删除属于 data_delete。
+- name: task.nvh.origin_data_export
+  domain: nvh.data_export
+  embed_text: 导出原始数据, 导出 TDMS, 导出 H5 原始数据, raw data export, 下载原始测试文件
+  tree_text: 用户想导出当前筛选范围内的原始测试数据文件。只有原始数据、raw data、TDMS、H5 原始文件应匹配；导出 Excel、下载报告、生成音频、导出结果数据或查询记录不应匹配。
 - name: task.nvh.data_backup
   domain: nvh.data_management
   embed_text: 备份数据, 先备份, backup data, 备份这些记录, 备份当前结果

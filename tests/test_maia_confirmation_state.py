@@ -30,14 +30,7 @@ def test_confirmation_state_store_submits_cancels_and_expires_confirmation() -> 
         ttl=timedelta(minutes=5),
     )
     builder = TaskSpecBuilder(id_factory=iter(("task-1",)).__next__)
-    task = builder.resume(
-        builder.build(_report(actions=["task.nvh.data_export"]), _selection_set("sel-1")),
-        _report(
-            operations=[
-                {"action": "replace", "entity_type": "data_kind", "target": "raw_data"},
-            ]
-        ),
-    )
+    task = builder.build(_report(actions=["task.nvh.origin_data_export"]), _selection_set("sel-1"))
     preview = service.preview(task, record_count=2)
 
     assert isinstance(task, TaskSpec)
@@ -72,14 +65,7 @@ def test_confirmation_service_rejects_invalid_token_stale_hash_and_expiry() -> N
         ttl=timedelta(minutes=5),
     )
     builder = TaskSpecBuilder(id_factory=iter(("task-1",)).__next__)
-    task = builder.resume(
-        builder.build(_report(actions=["task.nvh.data_export"]), _selection_set("sel-1")),
-        _report(
-            operations=[
-                {"action": "replace", "entity_type": "data_kind", "target": "raw_data"},
-            ]
-        ),
-    )
+    task = builder.build(_report(actions=["task.nvh.origin_data_export"]), _selection_set("sel-1"))
     preview = service.preview(task, record_count=2)
 
     with pytest.raises(ConfirmationError, match="token"):

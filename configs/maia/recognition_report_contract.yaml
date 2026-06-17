@@ -103,7 +103,7 @@ forbidden_output_fields:
 initial_scope:
   action_intents:
     - task.nvh.record_search
-    - task.nvh.data_export
+    - task.nvh.origin_data_export
     - task.nvh.data_backup
     - task.nvh.data_delete
     - task.nvh.data_observation.batch.frequency_spectrum

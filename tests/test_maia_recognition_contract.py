@@ -80,7 +80,7 @@ def test_recognition_samples_cover_goal_acceptance_examples() -> None:
         {"name": "task.nvh.record_search"}
     ]
     assert cases["导出 A 型号的原始数据"]["expected_report"]["action_intents"] == [
-        {"name": "task.nvh.data_export"}
+        {"name": "task.nvh.origin_data_export"}
     ]
     assert cases["删除上面这些数据"]["expected_report"]["action_intents"] == [
         {"name": "task.nvh.data_delete"}

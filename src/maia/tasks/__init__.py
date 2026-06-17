@@ -13,7 +13,7 @@ from maia.selection.sets import SelectionSet
 
 _OPERATIONS: dict[str, tuple[str, RiskLevel, tuple[str, ...]]] = {
     "task.nvh.record_search": ("Record search", "low", ()),
-    "task.nvh.data_export": ("Data export", "medium", ("data_kind",)),
+    "task.nvh.origin_data_export": ("Origin data export", "medium", ()),
     "task.nvh.data_backup": ("Data backup", "medium", ()),
     "task.nvh.data_delete": ("Data delete", "high", ()),
     "task.nvh.data_observation.batch.frequency_spectrum": ("Frequency spectrum", "low", ()),

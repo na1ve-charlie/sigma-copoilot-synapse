@@ -8,50 +8,34 @@ from maia.recognition.report import RecognitionReport
 from maia.selection import SelectionLineage, SelectionSet
 
 
-def test_task_spec_builder_returns_pending_task_for_missing_required_slots() -> None:
-    from maia.tasks import PendingTask, TaskSpecBuilder
+def test_task_spec_builder_returns_medium_risk_origin_export_task() -> None:
+    from maia.tasks import TaskSpec, TaskSpecBuilder
 
     builder = TaskSpecBuilder(id_factory=iter(("task-1",)).__next__)
 
-    task = builder.build(_report(actions=["task.nvh.data_export"]), _selection_set("sel-1"))
+    task = builder.build(_report(actions=["task.nvh.origin_data_export"]), _selection_set("sel-1"))
 
-    assert isinstance(task, PendingTask)
-    assert task.name == "task.nvh.data_export"
-    assert task.missing_slots == ("data_kind",)
+    assert isinstance(task, TaskSpec)
+    assert task.name == "task.nvh.origin_data_export"
+    assert task.params == {}
     assert task.selection_set_id == "sel-1"
     assert task.risk_level == "medium"
     assert task.requires_confirmation is True
 
 
-def test_task_spec_builder_resumes_pending_task_and_escalates_composite_risk() -> None:
-    from maia.tasks import PendingTask, TaskSpec, TaskSpecBuilder
+def test_task_spec_builder_escalates_composite_risk() -> None:
+    from maia.tasks import TaskSpec, TaskSpecBuilder
 
     builder = TaskSpecBuilder(id_factory=iter(("task-1",)).__next__)
-    pending = builder.build(
-        _report(actions=["task.nvh.data_export", "task.nvh.data_delete"]),
+    task = builder.build(
+        _report(actions=["task.nvh.origin_data_export", "task.nvh.data_delete"]),
         _selection_set("sel-1"),
     )
 
-    assert isinstance(pending, PendingTask)
-
-    resumed = builder.resume(
-        pending,
-        _report(
-            operations=[
-                {
-                    "action": "replace",
-                    "entity_type": "data_kind",
-                    "target": ("raw_data", "result_data"),
-                }
-            ]
-        ),
-    )
-
-    assert isinstance(resumed, TaskSpec)
-    assert resumed.operations == ("task.nvh.data_export", "task.nvh.data_delete")
-    assert resumed.params == {"data_kind": ("raw_data", "result_data")}
-    assert resumed.risk_level == "high"
-    assert resumed.requires_confirmation is True
+    assert isinstance(task, TaskSpec)
+    assert task.operations == ("task.nvh.origin_data_export", "task.nvh.data_delete")
+    assert task.risk_level == "high"
+    assert task.requires_confirmation is True
 
 
 def test_task_spec_builder_rejects_unknown_action_intent() -> None:
