@@ -18,10 +18,9 @@ from maia.api import (
     TurnRequest,
     TurnResponse,
 )
-from synapse.turns import TurnRequest as SynapseTurnRequest
 
 
-SAMPLES_PATH = Path("configs/maia/turns_response_samples.yaml")
+SAMPLES_PATH = Path("configs/maia/testdata/turns_response_samples.yaml")
 
 
 def test_turn_request_dump_keeps_only_lang_in_maia_workspace_context() -> None:
@@ -32,11 +31,10 @@ def test_turn_request_dump_keeps_only_lang_in_maia_workspace_context() -> None:
     }
 
     maia = TurnRequest(**payload)
-    synapse = SynapseTurnRequest(**payload)
 
     assert maia.model_dump(mode="json") == payload
-    assert synapse.workspace_context is not None
-    assert synapse.workspace_context.lang == "zh"
+    assert maia.workspace_context is not None
+    assert maia.workspace_context.lang == "zh"
 
 
 def test_turn_plan_dumps_include_public_dataset_shape() -> None:

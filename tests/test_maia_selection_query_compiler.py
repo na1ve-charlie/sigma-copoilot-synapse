@@ -14,7 +14,7 @@ from maia.selection.compiler import ALL_RECORDS_PREDICATE_NAME, SelectionQueryCo
 from maia.selection.query import SelectionQuery
 
 
-WORKSPACE_CONTEXT_PATH = Path("configs/maia/sigma/offline_1152.workspace_context.json")
+WORKSPACE_CONTEXT_PATH = Path("configs/maia/testdata/sigma/offline_1152.workspace_context.json")
 
 
 def test_query_compiler_unions_paginated_branches_and_applies_sort_limit() -> None:

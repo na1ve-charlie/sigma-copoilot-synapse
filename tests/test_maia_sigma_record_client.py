@@ -11,7 +11,7 @@ from maia.integrations.sigma import MutableSigmaTokenProvider
 from maia.integrations.sigma.record_client import TestRecordClient, TestRecordClientError
 
 
-WORKSPACE_CONTEXT_PATH = Path("configs/maia/sigma/offline_1152.workspace_context.json")
+WORKSPACE_CONTEXT_PATH = Path("configs/maia/testdata/sigma/offline_1152.workspace_context.json")
 
 
 def test_test_record_client_calls_legacy_endpoint_with_mapped_query_params() -> None:

@@ -10,8 +10,9 @@ from maia import build_maia_recognizer_from_config
 from maia.recognition import adapter as adapter_module
 
 
-INTENTS_DIR = Path("configs/maia/intents")
-CALIBRATION_PATH = Path("configs/maia/calibration_cases.yaml")
+INTENTS_DIR = Path("configs/maia/runtime/intents")
+CALIBRATION_PATH = Path("configs/maia/runtime/calibration_cases.yaml")
+TREE_PROMPT_EXAMPLES_PATH = Path("configs/maia/runtime/tree_prompt_examples.yaml")
 
 
 def test_maia_intent_files_cover_first_batch_actions_and_selection_slots() -> None:
@@ -29,6 +30,7 @@ def test_maia_intent_files_cover_first_batch_actions_and_selection_slots() -> No
         "task.nvh.audio.generate",
         "task.nvh.colormap.recompute",
     }.issubset(names)
+    assert "task.nvh.data_export" not in names
     assert {
         "task.nvh.selection.set_time_range",
         "task.nvh.selection.set_product_type",
@@ -130,6 +132,29 @@ def test_default_maia_recognizer_config_now_loads_first_batch_intents(
         "summary_result",
         "time_range",
     }.issubset(set(created["tree_prompt"].entity_types))
+
+
+def test_origin_data_export_tree_examples_are_action_only() -> None:
+    payload = yaml.safe_load(TREE_PROMPT_EXAMPLES_PATH.read_text(encoding="utf-8"))
+    examples = {example["input"]: example for example in payload["examples"]}
+
+    for message in (
+        "帮我导出原始数据",
+        "导出 TDMS",
+        "把这些记录导成 H5 原始文件",
+    ):
+        intents = examples[message]["intents"]
+        assert intents == [
+            {
+                "intent": "task.nvh.origin_data_export",
+                "score": 1.0,
+                "action": "",
+                "entity_type": "",
+                "target": "",
+                "slot_valid": True,
+            }
+        ]
+    assert examples["导出 Excel"]["intents"] == []
 
 
 def _load_maia_entries() -> list[Any]:

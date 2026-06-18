@@ -6,7 +6,7 @@ from pathlib import Path
 import yaml
 
 
-MANIFEST_PATH = Path("configs/maia/sigma_fixture_manifest.yaml")
+MANIFEST_PATH = Path("configs/maia/testdata/sigma_fixture_manifest.yaml")
 
 
 def test_sigma_fixture_manifest_points_to_existing_assets() -> None:

@@ -1,7 +1,7 @@
 recognition:
   intents_path: "intents"
-  tree_prompt_path: "../themis/tree_prompt.yaml"
-  report_contract_path: "recognition_report_contract.yaml"
+  tree_prompt_path: "tree_prompt.yaml"
+  report_contract_path: "../contracts/recognition_report_contract.yaml"
   llm:
     model: "qwen/qwen3-4b-2507"
     base_url: "http://localhost:1234/v1"

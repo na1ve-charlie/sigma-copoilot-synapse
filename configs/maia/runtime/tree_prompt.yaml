@@ -30,6 +30,9 @@ template: |
   - A bare entity reference inside an observation request should stay on the observation intent as slot fields when possible.
   - Resolver query intents ask for available candidates; use empty action, entity_type, and target for them.
   - Never invent intent names. Use only exact names from the Intent Tree.
+  - Never output removed legacy intent names such as "task.nvh.data_export".
+  - For task.nvh.origin_data_export, output empty action, entity_type, and target. H5 and TDMS are task parameters handled after intent recognition, not Themis slots.
+  - Do not use data_kind for export requests. data_kind is only for record-search filtering.
 
 examples_path: "tree_prompt_examples.yaml"
 

@@ -14,7 +14,7 @@ from maia.integrations.sigma.request_mapper import (
 )
 
 
-WORKSPACE_CONTEXT_PATH = Path("configs/maia/sigma/offline_1152.workspace_context.json")
+WORKSPACE_CONTEXT_PATH = Path("configs/maia/testdata/sigma/offline_1152.workspace_context.json")
 
 
 def test_request_mapper_projects_dataset_scope_page_defaults_and_supported_filters() -> None:

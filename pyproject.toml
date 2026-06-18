@@ -24,7 +24,7 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 where = ["src"]
-include = ["synapse*"]
+include = ["maia*"]
 
 [tool.uv.sources]
 themis = { path = "../themis", editable = true }

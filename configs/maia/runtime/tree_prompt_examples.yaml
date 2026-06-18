@@ -27,6 +27,36 @@ intent_groups:
         keywords: ["一维指标", "一维数据", "one dim", "ONE_D"]
 
 examples:
+  - input: "帮我导出原始数据"
+    intents:
+      - intent: "task.nvh.origin_data_export"
+        score: 1.0
+        action: ""
+        entity_type: ""
+        target: ""
+        slot_valid: true
+
+  - input: "导出 TDMS"
+    intents:
+      - intent: "task.nvh.origin_data_export"
+        score: 1.0
+        action: ""
+        entity_type: ""
+        target: ""
+        slot_valid: true
+
+  - input: "把这些记录导成 H5 原始文件"
+    intents:
+      - intent: "task.nvh.origin_data_export"
+        score: 1.0
+        action: ""
+        entity_type: ""
+        target: ""
+        slot_valid: true
+
+  - input: "导出 Excel"
+    intents: []
+
   - input: "去掉 {old_sensor} 加上 {new_sensor}"
     variables:
       old_sensor:

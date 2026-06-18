@@ -9,7 +9,7 @@ from pydantic import ValidationError
 from maia.selection import AllOf, AnyOf, Not, Predicate, iter_predicates, parse_filter_expression
 
 
-SAMPLES_PATH = Path("configs/maia/filter_expression_samples.yaml")
+SAMPLES_PATH = Path("configs/maia/testdata/filter_expression_samples.yaml")
 
 
 def test_filter_expression_samples_load_as_typed_trees() -> None:

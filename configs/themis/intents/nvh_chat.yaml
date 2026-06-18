@@ -1,9 +1,0 @@
-intents:
-- name: chat.nvh.capabilities
-  domain: nvh.chat
-  embed_text: 你好, hello, 能力说明, 你能做什么, 功能介绍, 帮助, 可以做什么
-  tree_text: 用户询问助手能力或闲聊，不应启动业务 Flow。
-- name: free_chat
-  domain: nvh.chat
-  embed_text: 你好, hello, hi, 闲聊, 随便聊聊, 普通聊天, 非业务问题
-  tree_text: 用户进行普通问候、闲聊或提出与业务系统无关的问题，应交给 LLM 直接回复，不应启动业务 Flow。

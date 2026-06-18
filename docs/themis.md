@@ -16,7 +16,7 @@ Themis 是面向业务 Copilot 的意图识别与路由决策模块。它封装�
 | --- | --- |
 | `themis/` | 业务方应依赖的公开 API |
 | `cli.py` | 本地调试命令行入口，安装后也可用 `themis` 命令 |
-| `configs/themis/intents/*.yaml` | 按 domain 拆分的示例意图定义，可作为接入模板 |
+| `configs/maia/runtime/intents/*.yaml` | Maia runtime intent definitions. |
 | `tests/config/cases.yaml` | 示例标注用例，用于人工回归或扩展测试集 |
 | `vendor/intent-fusion/` | 底层融合库，业务代码不建议直接依赖 |
 
@@ -59,7 +59,7 @@ uv run themis --show-mock
 
 ## 接入流程
 
-1. 复制 `configs/themis/intents/*.yaml` 到业务仓库中的配置目录，例如 `configs/themis/intents/`。
+1. 复制 `configs/maia/runtime/intents/*.yaml` 到业务仓库中的配置目录。
 2. 为每个业务 handler 增加稳定唯一的 intent name。
 3. 写清 `embed_text` 和 `tree_text`，尤其是相近意图之间的边界。
 4. 接入 LLM。生产环境推荐使用稳定的 OpenAI-compatible endpoint。
@@ -97,7 +97,7 @@ async def main() -> None:
         "indicator": ["RMS", "2Ord", "peak"],
     })
     recognizer = BusinessIntentRecognizer.from_yaml(
-        "configs/themis/intents/nvh_data_observation.yaml",
+        "configs/maia/runtime/intents/nvh_terminal_actions.yaml",
         llm,
         resolver=resolver,
         config=RecognitionConfig(
@@ -270,7 +270,7 @@ async def switch_sensor(decision):
 
 ## 意图文件配置
 
-意图文件使用 YAML。开发期可以直接参考 `configs/themis/intents/*.yaml`，生产环境建议放在业务自己的
+意图文件使用 YAML。开发期可以直接参考 `configs/maia/runtime/intents/*.yaml`，生产环境建议放在业务自己的
 `configs/` 目录中。
 
 顶层可以是 `intents` 列表：
@@ -341,7 +341,7 @@ class WorkspaceResolver:
 
 ```python
 recognizer = BusinessIntentRecognizer.from_yaml(
-    "configs/themis/intents/nvh_data_observation.yaml",
+    "configs/maia/runtime/intents/nvh_terminal_actions.yaml",
     llm,
     resolver=WorkspaceResolver(),
 )

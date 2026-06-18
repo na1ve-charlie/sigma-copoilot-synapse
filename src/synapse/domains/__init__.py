@@ -1,1 +1,0 @@
-"""Domain-specific Synapse extensions."""

@@ -5,8 +5,8 @@ from pathlib import Path
 import yaml
 
 
-CONTRACT_PATH = Path("configs/maia/turns_response_contract.yaml")
-SAMPLES_PATH = Path("configs/maia/turns_response_samples.yaml")
+CONTRACT_PATH = Path("configs/maia/contracts/turns_response_contract.yaml")
+SAMPLES_PATH = Path("configs/maia/testdata/turns_response_samples.yaml")
 
 PLAN_KINDS = [
     "reply",

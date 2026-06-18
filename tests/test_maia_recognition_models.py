@@ -13,11 +13,9 @@ def test_load_default_recognition_config_links_g00_contract() -> None:
 
     assert config.config_path == DEFAULT_RECOGNITION_CONFIG_PATH.resolve()
     assert config.intents_path == config.config_path.parent / "intents"
-    assert config.tree_prompt_path == (
-        config.config_path.parent.parent / "themis" / "tree_prompt.yaml"
-    )
+    assert config.tree_prompt_path == config.config_path.parent / "tree_prompt.yaml"
     assert config.report_contract_path == (
-        config.config_path.parent / "recognition_report_contract.yaml"
+        config.config_path.parent.parent / "contracts" / "recognition_report_contract.yaml"
     )
     assert config.llm.model == "qwen/qwen3-4b-2507"
     assert config.themis.build_index_on_init is False

@@ -11,7 +11,7 @@ from pydantic import BaseModel, ConfigDict
 
 
 DEFAULT_RECOGNITION_CONFIG_PATH = (
-    Path(__file__).resolve().parents[3] / "configs" / "maia" / "recognition.yaml"
+    Path(__file__).resolve().parents[3] / "configs" / "maia" / "runtime" / "recognition.yaml"
 )
 
 

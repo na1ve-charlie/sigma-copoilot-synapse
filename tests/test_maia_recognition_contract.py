@@ -5,8 +5,8 @@ from pathlib import Path
 import yaml
 
 
-CONTRACT_PATH = Path("configs/maia/recognition_report_contract.yaml")
-SAMPLES_PATH = Path("configs/maia/recognition_samples.yaml")
+CONTRACT_PATH = Path("configs/maia/contracts/recognition_report_contract.yaml")
+SAMPLES_PATH = Path("configs/maia/testdata/recognition_samples.yaml")
 
 EXPECTED_FIELD_ORDER = [
     "message",
