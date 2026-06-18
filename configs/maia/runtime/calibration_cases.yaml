@@ -19,6 +19,13 @@ cases:
       - {}
     note: "Goal 示例：原始数据导出动作 + 型号筛选"
 
+  - message: "导出所有传感器的全部数据 Excel"
+    expected:
+      - "task.nvh.excel_export"
+    slots:
+      - {}
+    note: "Excel 导出动作；传感器和数据类型由 task handler 二次解析"
+
   - message: "Vib1 或 Vib2 任意一个不合格"
     expected:
       - "task.nvh.selection.set_sensor"

@@ -55,7 +55,22 @@ examples:
         slot_valid: true
 
   - input: "导出 Excel"
-    intents: []
+    intents:
+      - intent: "task.nvh.excel_export"
+        score: 1.0
+        action: ""
+        entity_type: ""
+        target: ""
+        slot_valid: true
+
+  - input: "导出所有传感器的全部数据 Excel"
+    intents:
+      - intent: "task.nvh.excel_export"
+        score: 1.0
+        action: ""
+        entity_type: ""
+        target: ""
+        slot_valid: true
 
   - input: "去掉 {old_sensor} 加上 {new_sensor}"
     variables:

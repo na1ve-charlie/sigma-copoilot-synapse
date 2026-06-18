@@ -34,6 +34,17 @@ cases:
           slot_valid: true
       diagnostics: {}
 
+  - message: 导出 Excel
+    focus: excel export action without task-local slots
+    expected_report:
+      verdict: clear
+      requires_confirmation: false
+      degraded: false
+      action_intents:
+        - name: task.nvh.excel_export
+      slot_operations: []
+      diagnostics: {}
+
   - message: Vib1 或 Vib2 任意一个不合格
     focus: preserve AnyOf semantics as atomic recognition output
     expected_report:

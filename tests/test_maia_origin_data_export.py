@@ -102,6 +102,35 @@ def test_origin_data_export_clarifies_system_no_after_format_reply() -> None:
     ]
 
 
+def test_origin_data_export_uses_primary_action_when_embedding_returns_excel_candidate() -> None:
+    from maia.runtime import create_maia_runtime
+
+    records = (
+        _record("29181", product_type="A", system_no="SYS-1"),
+    )
+    handler = create_maia_runtime(
+        recognizer=_SequenceRecognizer(
+            [
+                _report(
+                    actions=["task.nvh.origin_data_export", "task.nvh.excel_export"],
+                    operations=[
+                        {"action": "replace", "entity_type": "product_type", "target": "A"},
+                    ],
+                )
+            ]
+        ),
+        record_client=_RecordClient(records),
+        product_catalog=_ProductCatalog(_configs_from_records(records)),
+        origin_export_client=_OriginExporter(),
+        source_version="sigma-fixture-v1",
+    )
+
+    response = asyncio.run(handler.handle_turn(_request("s1", "export A origin data TDMS")))
+
+    assert response.plan.kind == "confirm"
+    assert response.plan.payload["operation"] == "task.nvh.origin_data_export"
+
+
 class _SequenceRecognizer:
     def __init__(self, reports: list[RecognitionReport]) -> None:
         self._reports = list(reports)

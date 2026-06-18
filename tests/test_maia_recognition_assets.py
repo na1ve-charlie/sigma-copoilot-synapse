@@ -20,6 +20,7 @@ def test_maia_intent_files_cover_first_batch_actions_and_selection_slots() -> No
 
     assert {
         "task.nvh.record_search",
+        "task.nvh.excel_export",
         "task.nvh.origin_data_export",
         "task.nvh.data_backup",
         "task.nvh.data_delete",
@@ -56,9 +57,9 @@ def test_maia_calibration_cases_cover_goal_examples_and_declared_intents() -> No
     assert list(cases)[:5] == [
         "查找最近一周不合格记录",
         "导出 A 型号的原始数据",
+        "导出所有传感器的全部数据 Excel",
         "Vib1 或 Vib2 任意一个不合格",
         "删除上面这些数据",
-        "先备份这些数据，然后删除本地原始数据",
     ]
     assert cases["查找最近一周不合格记录"]["expected"] == [
         "task.nvh.selection.set_time_range",
@@ -68,6 +69,9 @@ def test_maia_calibration_cases_cover_goal_examples_and_declared_intents() -> No
     assert cases["导出 A 型号的原始数据"]["expected"] == [
         "task.nvh.selection.set_product_type",
         "task.nvh.origin_data_export",
+    ]
+    assert cases["导出所有传感器的全部数据 Excel"]["expected"] == [
+        "task.nvh.excel_export",
     ]
     assert cases["删除上面这些数据"]["expected"] == [
         "task.nvh.selection.use_active_selection",
@@ -113,6 +117,7 @@ def test_default_maia_recognizer_config_now_loads_first_batch_intents(
     assert {entry.name for entry in created["entries"]}.issuperset(
         {
             "task.nvh.record_search",
+            "task.nvh.excel_export",
             "task.nvh.origin_data_export",
             "task.nvh.selection.set_time_range",
             "task.nvh.selection.use_active_selection",
@@ -154,7 +159,26 @@ def test_origin_data_export_tree_examples_are_action_only() -> None:
                 "slot_valid": True,
             }
         ]
-    assert examples["导出 Excel"]["intents"] == []
+    assert examples["导出 Excel"]["intents"] == [
+        {
+            "intent": "task.nvh.excel_export",
+            "score": 1.0,
+            "action": "",
+            "entity_type": "",
+            "target": "",
+            "slot_valid": True,
+        }
+    ]
+    assert examples["导出所有传感器的全部数据 Excel"]["intents"] == [
+        {
+            "intent": "task.nvh.excel_export",
+            "score": 1.0,
+            "action": "",
+            "entity_type": "",
+            "target": "",
+            "slot_valid": True,
+        }
+    ]
 
 
 def _load_maia_entries() -> list[Any]:

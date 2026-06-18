@@ -72,6 +72,7 @@ def test_recognition_samples_cover_goal_acceptance_examples() -> None:
     assert list(cases) == [
         "查找最近一周不合格记录",
         "导出 A 型号的原始数据",
+        "导出 Excel",
         "Vib1 或 Vib2 任意一个不合格",
         "删除上面这些数据",
         "先备份这些数据，然后删除本地原始数据",
@@ -81,6 +82,9 @@ def test_recognition_samples_cover_goal_acceptance_examples() -> None:
     ]
     assert cases["导出 A 型号的原始数据"]["expected_report"]["action_intents"] == [
         {"name": "task.nvh.origin_data_export"}
+    ]
+    assert cases["导出 Excel"]["expected_report"]["action_intents"] == [
+        {"name": "task.nvh.excel_export"}
     ]
     assert cases["删除上面这些数据"]["expected_report"]["action_intents"] == [
         {"name": "task.nvh.data_delete"}

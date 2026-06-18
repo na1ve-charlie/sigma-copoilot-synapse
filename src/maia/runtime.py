@@ -7,8 +7,10 @@ from typing import Any, Protocol
 from maia.api import ClarifyPlan, TurnRequest, TurnResponse
 from maia.conversation.state import ConversationSelectionState
 from maia.integrations.sigma import (
+    ExcelExportClient,
     MutableSigmaTokenProvider,
     OriginExportClient,
+    SensorListClient,
     SigmaProductCatalogClient,
     SigmaSelectionSetMaterializer,
     SigmaTokenProvider,
@@ -26,6 +28,7 @@ from maia.selection import InMemorySelectionSetRepository
 from maia.selection.compiler import SelectionQueryCompiler
 from maia.selection.service import SelectionSetMaterializer, SelectionSetService
 from maia.tasks.origin_data_export import OriginDataExportHandler
+from maia.tasks.excel_export import ExcelExportHandler
 from maia.tasks.record_search import RecordSearchHandler
 from maia.tasks.record_search_filters import distinct_values
 from maia.tasks.router import TaskContext, TaskRouter
@@ -95,6 +98,8 @@ class MaiaTurnHandler:
         selection_repository: InMemorySelectionSetRepository,
         product_catalog: ProductCatalog | None = None,
         origin_export_client: object | None = None,
+        excel_export_client: object | None = None,
+        sensor_list_client: object | None = None,
     ) -> None:
         self._recognizer = recognizer
         self._state_repository = state_repository
@@ -110,6 +115,12 @@ class MaiaTurnHandler:
         )
         self._task_router = TaskRouter(
             (
+                ExcelExportHandler(
+                    record_search=record_search_handler,
+                    selection_repository=selection_repository,
+                    exporter=excel_export_client,
+                    sensor_lister=sensor_list_client,
+                ),
                 OriginDataExportHandler(
                     record_search=record_search_handler,
                     selection_repository=selection_repository,
@@ -175,6 +186,8 @@ def create_maia_runtime(
     product_catalog: ProductCatalog | None = None,
     selection_materializer: SelectionSetMaterializer | None = None,
     origin_export_client: object | None = None,
+    excel_export_client: object | None = None,
+    sensor_list_client: object | None = None,
     token_provider: SigmaTokenProvider | None = None,
     source_version: str = "sigma-legacy-v1",
     base_url: str | None = None,
@@ -200,6 +213,14 @@ def create_maia_runtime(
         base_url=sigma_base_url,
         token_provider=sigma_token_provider,
     )
+    excel_export_client = excel_export_client or ExcelExportClient(
+        base_url=sigma_base_url,
+        token_provider=sigma_token_provider,
+    )
+    sensor_list_client = sensor_list_client or SensorListClient(
+        base_url=sigma_base_url,
+        token_provider=sigma_token_provider,
+    )
     selection_compiler = SelectionQueryCompiler(record_client)
     return MaiaTurnHandler(
         recognizer=recognizer or build_maia_recognizer_from_config(),
@@ -208,6 +229,8 @@ def create_maia_runtime(
         selection_compiler=selection_compiler,
         product_catalog=product_catalog,
         origin_export_client=origin_export_client,
+        excel_export_client=excel_export_client,
+        sensor_list_client=sensor_list_client,
         selection_service=SelectionSetService(
             selection_repository,
             selection_compiler,

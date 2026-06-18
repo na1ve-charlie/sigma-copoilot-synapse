@@ -262,7 +262,7 @@ class OriginDataExportHandler:
 
 
 def _has_origin_action(context: TaskContext) -> bool:
-    return any(intent.name == ORIGIN_DATA_EXPORT_INTENT for intent in context.report.action_intents)
+    return bool(context.report.action_intents) and context.report.action_intents[0].name == ORIGIN_DATA_EXPORT_INTENT
 
 
 __all__ = ["OriginDataExportHandler"]
