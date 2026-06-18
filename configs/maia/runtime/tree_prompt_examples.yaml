@@ -72,6 +72,39 @@ examples:
         target: ""
         slot_valid: true
 
+  - input: "帮我删除这批测试记录"
+    intents:
+      - intent: "task.nvh.data_delete"
+        score: 1.0
+        action: ""
+        entity_type: ""
+        target: ""
+        slot_valid: true
+
+  - input: "备份这批测试记录"
+    intents:
+      - intent: "task.nvh.data_backup"
+        score: 1.0
+        action: ""
+        entity_type: ""
+        target: ""
+        slot_valid: true
+
+  - input: "先备份这批测试记录，然后删除本地原始数据"
+    intents:
+      - intent: "task.nvh.data_backup"
+        score: 1.0
+        action: ""
+        entity_type: ""
+        target: ""
+        slot_valid: true
+      - intent: "task.nvh.data_delete"
+        score: 1.0
+        action: ""
+        entity_type: ""
+        target: ""
+        slot_valid: true
+
   - input: "去掉 {old_sensor} 加上 {new_sensor}"
     variables:
       old_sensor:

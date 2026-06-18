@@ -33,10 +33,11 @@ template: |
   - Never output removed legacy intent names such as "task.nvh.data_export".
   - For task.nvh.origin_data_export, output empty action, entity_type, and target. H5 and TDMS are task parameters handled after intent recognition, not Themis slots.
   - For task.nvh.excel_export, output empty action, entity_type, and target. Sensor list and one/two/result data types are task parameters handled after intent recognition, not Themis slots.
+  - For task.nvh.data_backup and task.nvh.data_delete, output empty action, entity_type, and target. Data types and backup file name are task parameters handled after intent recognition, not Themis slots.
   - Do not use data_kind for export requests. data_kind is only for record-search filtering.
 
 examples_path: "tree_prompt_examples.yaml"
 
 example_rendering:
-  max_examples: 4
+  max_examples: 8
   group_selection: "message_aware"

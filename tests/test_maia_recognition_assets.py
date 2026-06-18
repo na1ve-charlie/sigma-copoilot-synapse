@@ -12,6 +12,7 @@ from maia.recognition import adapter as adapter_module
 
 INTENTS_DIR = Path("configs/maia/runtime/intents")
 CALIBRATION_PATH = Path("configs/maia/runtime/calibration_cases.yaml")
+TREE_PROMPT_PATH = Path("configs/maia/runtime/tree_prompt.yaml")
 TREE_PROMPT_EXAMPLES_PATH = Path("configs/maia/runtime/tree_prompt_examples.yaml")
 
 
@@ -181,8 +182,71 @@ def test_origin_data_export_tree_examples_are_action_only() -> None:
     ]
 
 
+def test_data_management_tree_examples_keep_terminal_actions_slotless() -> None:
+    payload = yaml.safe_load(TREE_PROMPT_EXAMPLES_PATH.read_text(encoding="utf-8"))
+    examples = {example["input"]: example for example in payload["examples"]}
+
+    expected = {
+        "帮我删除这批测试记录": [_slotless_intent("task.nvh.data_delete")],
+        "备份这批测试记录": [_slotless_intent("task.nvh.data_backup")],
+        "先备份这批测试记录，然后删除本地原始数据": [
+            _slotless_intent("task.nvh.data_backup"),
+            _slotless_intent("task.nvh.data_delete"),
+        ],
+    }
+
+    for message, intents in expected.items():
+        assert examples[message]["intents"] == intents
+
+
+def test_data_management_tree_examples_are_within_render_budget() -> None:
+    examples_payload = yaml.safe_load(TREE_PROMPT_EXAMPLES_PATH.read_text(encoding="utf-8"))
+    prompt_payload = yaml.safe_load(TREE_PROMPT_PATH.read_text(encoding="utf-8"))
+    example_inputs = [example["input"] for example in examples_payload["examples"]]
+    max_examples = prompt_payload["example_rendering"]["max_examples"]
+
+    required_examples = (
+        "帮我删除这批测试记录",
+        "备份这批测试记录",
+        "先备份这批测试记录，然后删除本地原始数据",
+    )
+
+    assert max(example_inputs.index(message) for message in required_examples) < max_examples
+
+
+def test_terminal_action_tree_examples_do_not_emit_slot_operations() -> None:
+    payload = yaml.safe_load(TREE_PROMPT_EXAMPLES_PATH.read_text(encoding="utf-8"))
+    terminal_intents = {
+        "task.nvh.origin_data_export",
+        "task.nvh.excel_export",
+        "task.nvh.data_backup",
+        "task.nvh.data_delete",
+    }
+
+    for example in payload["examples"]:
+        for intent in example["intents"]:
+            if intent.get("intent") not in terminal_intents:
+                continue
+            assert intent["action"] == ""
+            assert intent["entity_type"] == ""
+            assert intent["target"] == ""
+            assert "target_from" not in intent
+            assert intent["slot_valid"] is True
+
+
 def _load_maia_entries() -> list[Any]:
     entries: list[Any] = []
     for path in sorted(INTENTS_DIR.glob("*.yaml")):
         entries.extend(load_intents(path))
     return entries
+
+
+def _slotless_intent(name: str) -> dict[str, object]:
+    return {
+        "intent": name,
+        "score": 1.0,
+        "action": "",
+        "entity_type": "",
+        "target": "",
+        "slot_valid": True,
+    }
