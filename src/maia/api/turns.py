@@ -151,7 +151,10 @@ class ClarifyPlan(PlanWithDataset):
         empty_candidates = [
             prompt.id
             for prompt in self.prompts
-            if prompt.target == "slot" and prompt.id in slots and not prompt.candidates
+            if prompt.target == "slot"
+            and prompt.input_type != "text"
+            and prompt.id in slots
+            and not prompt.candidates
         ]
         if empty_candidates:
             joined = ", ".join(empty_candidates)

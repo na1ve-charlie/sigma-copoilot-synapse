@@ -45,6 +45,14 @@ from maia.integrations.sigma.excel_export import (
     SensorListError,
     SensorListTransport,
 )
+from maia.integrations.sigma.test_record_management import (
+    DEFAULT_BACKUP_PATH,
+    TEST_RECORD_MANAGEMENT_PATH,
+    TestRecordManagementClient,
+    TestRecordManagementError,
+    TestRecordManagementRequest,
+    TestRecordManagementTransport,
+)
 from maia.integrations.sigma.request_mapper import (
     LegacyRecordRequestMapper,
     LegacyRecordRequestParams,
@@ -59,6 +67,7 @@ __all__ = [
     "ArtifactKind",
     "DatasetMaterializerError",
     "DatasetMaterializerTransport",
+    "DEFAULT_BACKUP_PATH",
     "EXCEL_EXPORT_PATH",
     "ExcelExportClient",
     "ExcelExportError",
@@ -94,8 +103,13 @@ __all__ = [
     "SensorListClient",
     "SensorListError",
     "SensorListTransport",
+    "TEST_RECORD_MANAGEMENT_PATH",
     "TestRecordClient",
     "TestRecordClientError",
+    "TestRecordManagementClient",
+    "TestRecordManagementError",
+    "TestRecordManagementRequest",
+    "TestRecordManagementTransport",
     "TestRecordPage",
     "TestRecordSummary",
 ]

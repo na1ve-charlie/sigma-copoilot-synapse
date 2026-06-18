@@ -120,3 +120,23 @@ def test_turn_response_model_validates_g06_public_samples() -> None:
         response = TurnResponse.model_validate(case["response"])
         assert list(response.model_dump(mode="json")) == ["plan"]
         assert response.plan.kind == case["response"]["plan"]["kind"]
+
+
+def test_clarify_plan_allows_text_slot_prompt_without_candidates() -> None:
+    plan = ClarifyPlan(
+        reason="missing_slots",
+        message="Provide a file name.",
+        missing_slots=["file_name"],
+        prompts=[
+            Prompt(
+                id="file_name",
+                target="slot",
+                label="file name",
+                message="Provide a file name.",
+                required=True,
+                input_type="text",
+            )
+        ],
+    )
+
+    assert plan.prompts[0].candidates == []

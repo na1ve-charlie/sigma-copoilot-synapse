@@ -14,6 +14,7 @@ from maia.integrations.sigma import (
     SigmaProductCatalogClient,
     SigmaSelectionSetMaterializer,
     SigmaTokenProvider,
+    TestRecordManagementClient,
     TestRecordClient,
 )
 from maia.integrations.sigma.product_catalog import ProductConfig
@@ -32,6 +33,7 @@ from maia.tasks.excel_export import ExcelExportHandler
 from maia.tasks.record_search import RecordSearchHandler
 from maia.tasks.record_search_filters import distinct_values
 from maia.tasks.router import TaskContext, TaskRouter
+from maia.tasks.test_record_management import TestRecordManagementHandler
 
 _SUMMARY_RESULT_RESOLVER_VALUES = (*SUMMARY_RESULT_VALUES, *(alias.upper() for alias in SUMMARY_RESULT_ALIASES))
 _MARKING_RESULT_RESOLVER_VALUES = MARKING_RESULT_VALUES
@@ -100,6 +102,7 @@ class MaiaTurnHandler:
         origin_export_client: object | None = None,
         excel_export_client: object | None = None,
         sensor_list_client: object | None = None,
+        test_record_management_client: object | None = None,
     ) -> None:
         self._recognizer = recognizer
         self._state_repository = state_repository
@@ -125,6 +128,11 @@ class MaiaTurnHandler:
                     record_search=record_search_handler,
                     selection_repository=selection_repository,
                     exporter=origin_export_client,
+                ),
+                TestRecordManagementHandler(
+                    record_search=record_search_handler,
+                    selection_repository=selection_repository,
+                    manager=test_record_management_client,
                 ),
                 record_search_handler,
             )
@@ -188,6 +196,7 @@ def create_maia_runtime(
     origin_export_client: object | None = None,
     excel_export_client: object | None = None,
     sensor_list_client: object | None = None,
+    test_record_management_client: object | None = None,
     token_provider: SigmaTokenProvider | None = None,
     source_version: str = "sigma-legacy-v1",
     base_url: str | None = None,
@@ -221,6 +230,10 @@ def create_maia_runtime(
         base_url=sigma_base_url,
         token_provider=sigma_token_provider,
     )
+    test_record_management_client = test_record_management_client or TestRecordManagementClient(
+        base_url=sigma_base_url,
+        token_provider=sigma_token_provider,
+    )
     selection_compiler = SelectionQueryCompiler(record_client)
     return MaiaTurnHandler(
         recognizer=recognizer or build_maia_recognizer_from_config(),
@@ -231,6 +244,7 @@ def create_maia_runtime(
         origin_export_client=origin_export_client,
         excel_export_client=excel_export_client,
         sensor_list_client=sensor_list_client,
+        test_record_management_client=test_record_management_client,
         selection_service=SelectionSetService(
             selection_repository,
             selection_compiler,
