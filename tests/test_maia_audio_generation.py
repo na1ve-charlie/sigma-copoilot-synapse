@@ -167,6 +167,93 @@ def test_audio_generation_handles_llm_ng_target_as_terminal_action() -> None:
     assert response.plan.payload["params"]["resultIds"] == [46467]
 
 
+def test_audio_generation_uses_active_selection_without_reasking_config_version() -> None:
+    from maia.conversation.state import ConversationSelectionState
+    from maia.runtime import ConversationStateRepository, create_maia_runtime
+    from maia.selection import InMemorySelectionSetRepository, SelectionLineage, SelectionSet
+
+    records = (
+        _record("46467", product_type="A", summary_result="不合格", config_version="2"),
+        _record("46477", product_type="A", summary_result="不合格", config_version="1"),
+        _record("46478", product_type="A", summary_result="PASS", config_version="0"),
+    )
+    selection_repository = InMemorySelectionSetRepository()
+    state_repository = ConversationStateRepository()
+    selection = SelectionSet(
+        selection_set_id="sel-active",
+        expression={
+            "kind": "all_of",
+            "expressions": [
+                {
+                    "kind": "predicate",
+                    "name": "product_type_in",
+                    "params": {"values": ["A"]},
+                },
+                {
+                    "kind": "predicate",
+                    "name": "config_version_in",
+                    "params": {"values": ["2", "1", "0"]},
+                },
+                {
+                    "kind": "predicate",
+                    "name": "summary_result_in",
+                    "params": {"values": ["不合格"]},
+                },
+            ],
+        },
+        record_count=3,
+        record_ids=("46467", "46477", "46478"),
+        source_version="sigma-fixture-v1",
+        created_at=datetime(2026, 6, 11, 9, 30, tzinfo=UTC),
+        lineage=SelectionLineage(operation="create"),
+    )
+    selection_repository.save(selection)
+    state_repository.save(
+        "s1",
+        ConversationSelectionState(
+            active_selection_set_id=selection.selection_set_id,
+            recent_selection_set_ids=(selection.selection_set_id,),
+        ),
+    )
+    handler = create_maia_runtime(
+        recognizer=_SequenceRecognizer(
+            [
+                RecognitionReport(
+                    message="帮我生成 NG 音频",
+                    verdict="clear",
+                    requires_confirmation=False,
+                    degraded=False,
+                    action_intents=[
+                        {"name": "task.nvh.audio.generate", "score": 0.9767}
+                    ],
+                    slot_operations=[
+                        {
+                            "intent": "task.nvh.selection.set_summary_result",
+                            "score": 1.0,
+                            "action": "replace",
+                            "entity_type": "summary_result",
+                            "target": "不合格",
+                            "slot_valid": True,
+                        },
+                    ],
+                )
+            ]
+        ),
+        record_client=_RecordClient(records),
+        product_catalog=_ProductCatalog(_configs_from_records(records)),
+        selection_repository=selection_repository,
+        state_repository=state_repository,
+        audio_generation_client=_AudioGenerator(),
+        source_version="sigma-fixture-v1",
+    )
+
+    response = asyncio.run(handler.handle_turn(_request("s1", "帮我生成 NG 音频")))
+
+    assert response.plan.kind == "confirm"
+    assert response.plan.payload["operation"] == "task.nvh.audio.generate"
+    assert response.plan.payload["params"]["resultIds"] == [46467, 46477]
+
+
 class _SequenceRecognizer:
     def __init__(self, reports: list[RecognitionReport]) -> None:
         self._reports = list(reports)
@@ -241,13 +328,20 @@ def _request(session_id: str, message: str) -> TurnRequest:
     return TurnRequest(session_id=session_id, message=message)
 
 
-def _record(record_id: str, *, product_type: str, summary_result: str) -> TestRecordSummary:
+def _record(
+    record_id: str,
+    *,
+    product_type: str,
+    summary_result: str,
+    config_version: str = "1",
+    system_no: str = "SYS-1",
+) -> TestRecordSummary:
     return TestRecordSummary(
         record_id=record_id,
         tested_at=datetime(2026, 6, 11, 9, 30, tzinfo=UTC),
         product_type=product_type,
-        config_version="1",
-        system_no="SYS-1",
+        config_version=config_version,
+        system_no=system_no,
         serial_number=f"SN-{record_id}",
         summary_result=summary_result,
         available_artifacts=("raw_data",),

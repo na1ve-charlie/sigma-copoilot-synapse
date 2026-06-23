@@ -83,6 +83,34 @@ class AudioGenerationHandler:
         return await self._start_task(context)
 
     async def _start_task(self, context: TaskContext) -> TaskResult:
+        if context.state.active_selection_set_id is not None:
+            selection = self._selection_repository.get(context.state.active_selection_set_id)
+            if selection is None:
+                return TaskResult(
+                    plan=TaskPlan(
+                        status="blocked",
+                        name=AUDIO_GENERATION_INTENT,
+                        intent=AUDIO_GENERATION_INTENT,
+                        title="NG audio generation",
+                        risk_level="medium",
+                        requires_confirmation=True,
+                        message="The selected records are no longer available.",
+                        reason="selection_not_found",
+                    ),
+                    state=context.state,
+                )
+            task = TaskSpec(
+                task_id=self._task_id_factory(),
+                name=AUDIO_GENERATION_INTENT,
+                title="NG audio generation",
+                operations=(AUDIO_GENERATION_INTENT,),
+                selection_set_id=selection.selection_set_id,
+                selection_hash=selection.selection_hash,
+                risk_level="medium",
+                requires_confirmation=True,
+            )
+            return await self._prepare_or_confirm(context, context.state, task)
+
         if any(intent.name == AUDIO_GENERATION_INTENT for intent in context.report.intents):
             report = context.report.model_copy(
                 update={
