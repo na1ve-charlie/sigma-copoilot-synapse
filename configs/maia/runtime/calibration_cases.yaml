@@ -60,7 +60,7 @@ cases:
     note: "Goal 示例：有序复合动作，先备份再删除"
 
   - message: "查看频谱"
-    expected: "task.nvh.data_observation.batch.frequency_spectrum"
+    expected: "task.nvh.data_observation.view_indicator_result"
     note: "首批观察动作：频谱"
 
   - message: "看 RMS 趋势"
@@ -135,13 +135,8 @@ cases:
     note: "筛选条件：序列号"
 
   - message: "测试段切到 Spd-rDL 再看频谱"
-    expected:
-      - "task.nvh.selection.set_test_segment"
-      - "task.nvh.data_observation.batch.frequency_spectrum"
-    slots:
-      - {action: "replace", entity_type: "test_segment", target: "Spd-rDL"}
-      - {}
-    note: "复合意图：测试段筛选 + 观察动作"
+    expected: "task.nvh.data_observation.view_indicator_result"
+    note: "观察动作；测试段由 DataObservationHandler 解析为 task params"
 
   - message: "只看人工标记总结果为不合格"
     expected: "task.nvh.selection.set_manual_tagging"

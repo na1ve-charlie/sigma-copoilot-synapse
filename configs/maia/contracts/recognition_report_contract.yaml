@@ -107,7 +107,7 @@ initial_scope:
     - task.nvh.origin_data_export
     - task.nvh.data_backup
     - task.nvh.data_delete
-    - task.nvh.data_observation.batch.frequency_spectrum
+    - task.nvh.data_observation.view_indicator_result
     - task.nvh.data_observation.indicator_trend_analysis.trend
     - task.nvh.report.download
     - task.nvh.report.generate

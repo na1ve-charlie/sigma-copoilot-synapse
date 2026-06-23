@@ -116,7 +116,7 @@ def test_render_report_shows_diagnostics_when_requested() -> None:
         degraded=False,
         diagnostics={
             "top_candidate": {
-                "name": "task.nvh.data_observation.batch.frequency_spectrum",
+                "name": "task.nvh.data_observation.view_indicator_result",
                 "score": 0.91,
             },
             "runner_up": None,
@@ -128,7 +128,7 @@ def test_render_report_shows_diagnostics_when_requested() -> None:
 
     assert "hidden (use --diagnostics)" not in rendered
     assert "top_candidate" in rendered
-    assert "task.nvh.data_observation.batch.frequency_spectrum" in rendered
+    assert "task.nvh.data_observation.view_indicator_result" in rendered
     assert "runner_up" in rendered
 
 
@@ -145,7 +145,7 @@ def test_cli_single_message_mode_prints_report(
                 degraded=False,
                 action_intents=(
                     {
-                        "name": "task.nvh.data_observation.batch.frequency_spectrum",
+                        "name": "task.nvh.data_observation.view_indicator_result",
                         "score": 0.91,
                     },
                 ),
@@ -179,13 +179,13 @@ def test_cli_single_message_mode_prints_pretty_json_with_diagnostics(
                 degraded=False,
                 action_intents=(
                     {
-                        "name": "task.nvh.data_observation.batch.frequency_spectrum",
+                        "name": "task.nvh.data_observation.view_indicator_result",
                         "score": 0.91,
                     },
                 ),
                 diagnostics={
                     "top_candidate": {
-                        "name": "task.nvh.data_observation.batch.frequency_spectrum",
+                        "name": "task.nvh.data_observation.view_indicator_result",
                         "score": 0.91,
                     },
                     "runner_up": None,
@@ -209,7 +209,7 @@ def test_cli_single_message_mode_prints_pretty_json_with_diagnostics(
     assert output.out.startswith("{\n  ")
     assert payload["message"] == "查看频谱"
     assert payload["diagnostics"]["top_candidate"]["name"] == (
-        "task.nvh.data_observation.batch.frequency_spectrum"
+        "task.nvh.data_observation.view_indicator_result"
     )
 
 
@@ -265,7 +265,7 @@ def test_cli_interactive_mode_prints_separator_between_reports(
                 degraded=False,
                 action_intents=(
                     {
-                        "name": "task.nvh.data_observation.batch.frequency_spectrum",
+                        "name": "task.nvh.data_observation.view_indicator_result",
                         "score": 0.91,
                     },
                 ),

@@ -20,15 +20,15 @@ cases:
         reason: missing_slots
         message: Please choose a sensor.
         dataset: {}
-        pending_task: query_frequency_spectrum
-        missing_slots: [sensors]
+        pending_task: task.nvh.data_observation.view_indicator_result
+        missing_slots: [sensorList]
         prompts:
-          - id: sensors
+          - id: sensorList
             target: slot
-            label: Sensor
-            message: Select one sensor.
+            label: 传感器
+            message: 请选择传感器。
             required: true
-            input_type: single_select
+            input_type: multi_select
             candidates:
               - value: S1
                 label: Seat 1
@@ -43,20 +43,20 @@ cases:
       plan:
         kind: task
         status: ready
-        name: query_frequency_spectrum
-        intent: task.nvh.data_observation.batch.frequency_spectrum
-        title: Query frequency spectrum
+        name: task.nvh.data_observation.view_indicator_result
+        intent: task.nvh.data_observation.view_indicator_result
+        title: View indicator result
         risk_level: low
         requires_confirmation: false
         dataset: {}
         params:
-          sensors: [S1]
-          test_segments: [TS-01]
-          indicator_names:
-            - name: RMS
-              index: rms-001
-          data_types: [TWO_D_FS]
-        message: "Task is ready: Query frequency spectrum"
+          dataType: TWO_D_FS
+          sensorList: [S1]
+          testNameList: [TS-01]
+          indicator:
+            name: 频谱
+            index: fs-001
+        message: "Observation task is ready."
         slot_state_diff:
           changes:
             - slot: sensors
@@ -104,4 +104,3 @@ cases:
             - slot: sensors
               before: [S2]
               after: null
-

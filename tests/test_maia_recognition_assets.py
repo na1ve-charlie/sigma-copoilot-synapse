@@ -25,7 +25,7 @@ def test_maia_intent_files_cover_first_batch_actions_and_selection_slots() -> No
         "task.nvh.origin_data_export",
         "task.nvh.data_backup",
         "task.nvh.data_delete",
-        "task.nvh.data_observation.batch.frequency_spectrum",
+        "task.nvh.data_observation.view_indicator_result",
         "task.nvh.data_observation.indicator_trend_analysis.trend",
         "task.nvh.report.download",
         "task.nvh.report.generate",

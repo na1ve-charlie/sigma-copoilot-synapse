@@ -19,10 +19,10 @@ intents:
   domain: nvh.data_management
   embed_text: 删除数据, 删掉这些数据, 清理当前数据, delete data, 删除本地原始数据
   tree_text: 用户想删除当前选择的数据。区分：删除数据集、删除配置或普通查询不应匹配这里。
-- name: task.nvh.data_observation.batch.frequency_spectrum
+- name: task.nvh.data_observation.view_indicator_result
   domain: nvh.data_observation
-  embed_text: 看频谱, 查看频谱, 频谱图, spectrum, 观察频谱, 查频谱
-  tree_text: 用户想查看普通频谱数据。区分：趋势、报告、导出和重计算不是频谱观察。
+  embed_text: 查看指标结果, 查看结果数据, 查看某个指标, 看指标图, 观察数据, 看一维指标, 看时间域, 看频谱, 看阶次谱, 看阶次切片, 看倒谱, 看心理声学, observation result
+  tree_text: 用户想查看结果数据、指标结果、指标图或某个数据观察结果。指标域包括一维指标、时间域、频谱、阶次谱、阶次切片、倒谱、心理声学。不要尝试抽取指标域、传感器、测试段或指标名；这些都由应用层 DataObservationHandler 作为 task params 解析。区分：趋势、记录列表查询、报告、导出、音频和重计算不是该观察任务。
 - name: task.nvh.data_observation.indicator_trend_analysis.trend
   domain: nvh.data_observation
   embed_text: 看趋势, 指标趋势, RMS趋势, trend, 变化曲线, 趋势图

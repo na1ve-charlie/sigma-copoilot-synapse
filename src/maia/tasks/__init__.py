@@ -17,7 +17,7 @@ _OPERATIONS: dict[str, tuple[str, RiskLevel, tuple[str, ...]]] = {
     "task.nvh.origin_data_export": ("Origin data export", "medium", ()),
     "task.nvh.data_backup": ("Data backup", "medium", ()),
     "task.nvh.data_delete": ("Data delete", "high", ()),
-    "task.nvh.data_observation.batch.frequency_spectrum": ("Frequency spectrum", "low", ()),
+    "task.nvh.data_observation.view_indicator_result": ("View indicator result", "low", ()),
     "task.nvh.data_observation.indicator_trend_analysis.trend": ("Indicator trend", "low", ()),
     "task.nvh.report.download": ("Report download", "medium", ()),
     "task.nvh.report.generate": ("Report generation", "medium", ()),

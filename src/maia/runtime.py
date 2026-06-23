@@ -12,6 +12,7 @@ from maia.integrations.sigma import (
     NgAudioGenerationClient,
     OriginExportClient,
     SensorListClient,
+    SigmaDataObservationCatalogClient,
     SigmaProductCatalogClient,
     SigmaSelectionSetMaterializer,
     SigmaTokenProvider,
@@ -30,6 +31,7 @@ from maia.selection import InMemorySelectionSetRepository
 from maia.selection.compiler import SelectionQueryCompiler
 from maia.selection.service import SelectionSetMaterializer, SelectionSetService
 from maia.tasks.audio_generation import AudioGenerationHandler
+from maia.tasks.data_observation import DataObservationHandler
 from maia.tasks.origin_data_export import OriginDataExportHandler
 from maia.tasks.excel_export import ExcelExportHandler
 from maia.tasks.record_search import RecordSearchHandler
@@ -104,6 +106,7 @@ class MaiaTurnHandler:
         origin_export_client: object | None = None,
         excel_export_client: object | None = None,
         audio_generation_client: object | None = None,
+        data_observation_catalog: object | None = None,
         sensor_list_client: object | None = None,
         test_record_management_client: object | None = None,
     ) -> None:
@@ -141,6 +144,11 @@ class MaiaTurnHandler:
                     record_search=record_search_handler,
                     selection_repository=selection_repository,
                     manager=test_record_management_client,
+                ),
+                DataObservationHandler(
+                    record_search=record_search_handler,
+                    selection_repository=selection_repository,
+                    catalog=data_observation_catalog,
                 ),
                 record_search_handler,
             )
@@ -204,6 +212,7 @@ def create_maia_runtime(
     origin_export_client: object | None = None,
     excel_export_client: object | None = None,
     audio_generation_client: object | None = None,
+    data_observation_catalog: object | None = None,
     sensor_list_client: object | None = None,
     test_record_management_client: object | None = None,
     token_provider: SigmaTokenProvider | None = None,
@@ -239,6 +248,10 @@ def create_maia_runtime(
         base_url=sigma_base_url,
         token_provider=sigma_token_provider,
     )
+    data_observation_catalog = data_observation_catalog or SigmaDataObservationCatalogClient(
+        base_url=sigma_base_url,
+        token_provider=sigma_token_provider,
+    )
     sensor_list_client = sensor_list_client or SensorListClient(
         base_url=sigma_base_url,
         token_provider=sigma_token_provider,
@@ -257,6 +270,7 @@ def create_maia_runtime(
         origin_export_client=origin_export_client,
         excel_export_client=excel_export_client,
         audio_generation_client=audio_generation_client,
+        data_observation_catalog=data_observation_catalog,
         sensor_list_client=sensor_list_client,
         test_record_management_client=test_record_management_client,
         selection_service=SelectionSetService(

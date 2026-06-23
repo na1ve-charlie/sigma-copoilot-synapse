@@ -54,7 +54,7 @@ def test_turn_plan_dumps_include_public_dataset_shape() -> None:
         ClarifyPlan(
             reason="missing_slots",
             message="Please choose a sensor.",
-            pending_task="query_frequency_spectrum",
+            pending_task="task.nvh.data_observation.view_indicator_result",
             missing_slots=["sensors"],
             prompts=[
                 Prompt(
@@ -71,9 +71,9 @@ def test_turn_plan_dumps_include_public_dataset_shape() -> None:
         ),
         TaskPlan(
             status="ready",
-            name="query_frequency_spectrum",
-            intent="task.nvh.data_observation.batch.frequency_spectrum",
-            title="Query frequency spectrum",
+            name="task.nvh.data_observation.view_indicator_result",
+            intent="task.nvh.data_observation.view_indicator_result",
+            title="View indicator result",
             risk_level="low",
             requires_confirmation=False,
             params={"sensors": ["S2"]},
@@ -110,7 +110,7 @@ def test_turn_plan_dumps_include_public_dataset_shape() -> None:
         "context_clear",
     ]
     assert all(item["dataset"] == {} for item in dumped)
-    assert dumped[2]["intent"] == "task.nvh.data_observation.batch.frequency_spectrum"
+    assert dumped[2]["intent"] == "task.nvh.data_observation.view_indicator_result"
 
 
 def test_turn_response_model_validates_g06_public_samples() -> None:
