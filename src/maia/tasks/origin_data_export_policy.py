@@ -11,6 +11,7 @@ from maia.integrations.sigma.origin_export import OriginExportError, OriginExpor
 from maia.integrations.sigma.records import TestRecordSummary
 from maia.selection.sets import SelectionSet
 from maia.tasks import PendingConfirmation, PendingTask, TaskSpec
+from maia.tasks.slot_value_resolution import MessageSlotResolver, SlotCandidate, SlotCandidateSet
 
 
 ORIGIN_DATA_EXPORT_INTENT = "task.nvh.origin_data_export"
@@ -19,6 +20,7 @@ SYSTEM_NO_SLOT = "system_no"
 DEFAULT_EXPORT_PATH = "D:\\exportOriginFile"
 PENDING_SELECTION_MARKER = f"__task__:{ORIGIN_DATA_EXPORT_INTENT}"
 FORMAT_VALUES = {"H5": 0, "TDMS": 1}
+_SLOT_RESOLVER = MessageSlotResolver()
 CONFIRM_VALUES = {"\u786e\u8ba4", "\u662f", "\u597d\u7684", "\u6267\u884c", "confirm", "yes", "y"}
 CANCEL_VALUES = {"\u53d6\u6d88", "\u4e0d\u7528", "\u4e0d\u8981", "cancel", "no", "n"}
 
@@ -180,16 +182,11 @@ def pending_task(task: TaskSpec | PendingTask, missing_slot: str) -> PendingTask
 
 
 def format_from_message(message: str) -> str | None:
-    normalized = message.upper()
-    matched = [value for value in FORMAT_VALUES if value in normalized]
-    return matched[0] if len(matched) == 1 else None
+    return _SLOT_RESOLVER.resolve_message(message, _format_candidate_set()).first
 
 
 def format_param(value: object) -> str | None:
-    if value is None:
-        return None
-    normalized = str(value).strip().upper()
-    return normalized if normalized in FORMAT_VALUES else None
+    return _SLOT_RESOLVER.resolve_value(value, _format_candidate_set()).first
 
 
 def system_param(value: object) -> str | None:
@@ -199,12 +196,31 @@ def system_param(value: object) -> str | None:
     return normalized or None
 
 
+def system_from_message(message: str, candidates: tuple[str, ...]) -> str | None:
+    result = _SLOT_RESOLVER.resolve_message(message, _system_candidate_set(candidates))
+    return result.first
+
+
 def systems(records: tuple[TestRecordSummary, ...]) -> tuple[str, ...]:
     return tuple(dict.fromkeys(record.system_no for record in records if record.system_no))
 
 
 def system_counts(records: tuple[TestRecordSummary, ...]) -> Counter[str]:
     return Counter(record.system_no for record in records if record.system_no)
+
+
+def _format_candidate_set() -> SlotCandidateSet:
+    return SlotCandidateSet(
+        slot=ORIGIN_DATA_FORMAT_SLOT,
+        candidates=tuple(SlotCandidate(value=value, label=value) for value in FORMAT_VALUES),
+    )
+
+
+def _system_candidate_set(candidates: tuple[str, ...]) -> SlotCandidateSet:
+    return SlotCandidateSet(
+        slot=SYSTEM_NO_SLOT,
+        candidates=tuple(SlotCandidate(value=value, label=value) for value in candidates),
+    )
 
 
 def export_request(
@@ -258,5 +274,6 @@ __all__ = [
     "pending_task",
     "request_from_task",
     "system_param",
+    "system_from_message",
     "systems",
 ]

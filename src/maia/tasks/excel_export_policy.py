@@ -12,6 +12,7 @@ from maia.integrations.sigma.excel_export import ExcelExportError, ExcelExportRe
 from maia.integrations.sigma.records import TestRecordSummary
 from maia.selection.sets import SelectionSet
 from maia.tasks import PendingConfirmation, PendingTask, TaskSpec
+from maia.tasks.slot_value_resolution import MessageSlotResolver, SlotCandidate, SlotCandidateSet
 
 
 EXCEL_EXPORT_INTENT = "task.nvh.excel_export"
@@ -26,7 +27,7 @@ DATA_TYPE_OPTIONS = (
     ("two_data", "\u4e8c\u7ef4\u6570\u636e", "twoData"),
     ("result_data", "\u7ed3\u679c\u6570\u636e", "resultData"),
 )
-DATA_TYPE_VALUES = tuple(item[0] for item in DATA_TYPE_OPTIONS)
+_SLOT_RESOLVER = MessageSlotResolver()
 
 
 class ExcelExporter(Protocol):
@@ -275,39 +276,15 @@ def sensor_param(value: object) -> tuple[str, ...]:
 
 
 def data_types_param(value: object) -> tuple[str, ...]:
-    normalized: list[str] = []
-    for item in _items(value):
-        text = _text(item)
-        if text is None:
-            continue
-        exact = _data_type_value(text)
-        values = (exact,) if exact is not None else data_types_from_message(text)
-        for candidate in values or ():
-            if candidate not in normalized:
-                normalized.append(candidate)
-    return tuple(normalized)
+    return _SLOT_RESOLVER.resolve_value(value, _data_type_candidate_set()).matched
 
 
 def data_types_from_message(message: str) -> tuple[str, ...]:
-    normalized = message.casefold()
-    if any(marker in normalized for marker in ("\u5168\u90e8\u6570\u636e", "\u6240\u6709\u6570\u636e", "\u5168\u91cf\u6570\u636e", "all data")):
-        return DATA_TYPE_VALUES
-    matched: list[str] = []
-    for value, _label, aliases in (
-        ("one_data", "\u4e00\u7ef4\u6570\u636e", ("\u4e00\u7ef4", "1d", "one data")),
-        ("two_data", "\u4e8c\u7ef4\u6570\u636e", ("\u4e8c\u7ef4", "2d", "two data")),
-        ("result_data", "\u7ed3\u679c\u6570\u636e", ("\u7ed3\u679c\u6570\u636e", "\u7ed3\u679c", "result")),
-    ):
-        if any(alias in normalized for alias in aliases):
-            matched.append(value)
-    return tuple(dict.fromkeys(matched))
+    return _SLOT_RESOLVER.resolve_message(message, _data_type_candidate_set()).matched
 
 
 def sensors_from_message(message: str, candidates: tuple[str, ...]) -> tuple[str, ...]:
-    normalized = message.casefold()
-    if any(marker in normalized for marker in ("\u5168\u90e8\u4f20\u611f\u5668", "\u6240\u6709\u4f20\u611f\u5668", "all sensors")):
-        return candidates
-    return tuple(candidate for candidate in candidates if candidate.casefold() in normalized)
+    return _SLOT_RESOLVER.resolve_message(message, _sensor_candidate_set(candidates)).matched
 
 
 def scope_param(value: object, scopes: tuple[ExcelExportScope, ...]) -> ExcelExportScope | None:
@@ -318,17 +295,11 @@ def scope_param(value: object, scopes: tuple[ExcelExportScope, ...]) -> ExcelExp
         if product_type and config_version and system_no:
             candidate = ExcelExportScope(product_type, config_version, system_no)
             return candidate if candidate in scopes else None
-    text = _text(value)
-    if text is None:
-        return None
-    return next(
-        (
-            scope
-            for scope in scopes
-            if text in {scope.label, scope.system_no, scope.type_, f"{scope.type_}/{scope.system_no}"}
-        ),
-        None,
-    )
+    return _SLOT_RESOLVER.resolve_value(value, _scope_candidate_set(scopes)).first
+
+
+def scope_from_message(message: str, scopes: tuple[ExcelExportScope, ...]) -> ExcelExportScope | None:
+    return _SLOT_RESOLVER.resolve_message(message, _scope_candidate_set(scopes)).first
 
 
 def scopes(records: tuple[TestRecordSummary, ...]) -> tuple[ExcelExportScope, ...]:
@@ -366,16 +337,8 @@ def validate_sensors(
     value: object,
     candidates: tuple[str, ...],
 ) -> tuple[tuple[str, ...], tuple[str, ...]]:
-    by_key = {candidate.casefold(): candidate for candidate in candidates}
-    selected: list[str] = []
-    invalid: list[str] = []
-    for item in sensor_param(value):
-        candidate = by_key.get(item.casefold())
-        if candidate is None:
-            invalid.append(item)
-        elif candidate not in selected:
-            selected.append(candidate)
-    return tuple(selected), tuple(invalid)
+    result = _SLOT_RESOLVER.resolve_value(value, _sensor_candidate_set(candidates))
+    return result.matched, result.invalid
 
 
 def data_flags(data_types: tuple[str, ...]) -> dict[str, int]:
@@ -429,12 +392,44 @@ def _request_flags(data_types: tuple[str, ...]) -> dict[str, int]:
     }
 
 
-def _data_type_value(text: str) -> str | None:
-    normalized = text.strip().casefold()
-    for value, label, backend_key in DATA_TYPE_OPTIONS:
-        if normalized in {value, label.casefold(), backend_key.casefold()}:
-            return value
-    return None
+def _data_type_candidate_set() -> SlotCandidateSet:
+    aliases = {
+        "one_data": ("\u4e00\u7ef4", "1d", "one data"),
+        "two_data": ("\u4e8c\u7ef4", "2d", "two data"),
+        "result_data": ("\u7ed3\u679c", "result"),
+    }
+    return SlotCandidateSet(
+        slot=EXCEL_DATA_TYPES_SLOT,
+        candidates=tuple(
+            SlotCandidate(value=value, label=label, aliases=(backend_key, *aliases.get(value, ())))
+            for value, label, backend_key in DATA_TYPE_OPTIONS
+        ),
+        multi=True,
+        all_aliases=("\u5168\u90e8\u6570\u636e", "\u6240\u6709\u6570\u636e", "\u5168\u91cf\u6570\u636e", "all data"),
+    )
+
+
+def _sensor_candidate_set(candidates: tuple[str, ...]) -> SlotCandidateSet:
+    return SlotCandidateSet(
+        slot=SENSOR_ID_LIST_SLOT,
+        candidates=tuple(SlotCandidate(value=sensor, label=sensor) for sensor in candidates),
+        multi=True,
+        all_aliases=("\u5168\u90e8\u4f20\u611f\u5668", "\u6240\u6709\u4f20\u611f\u5668", "all sensors"),
+    )
+
+
+def _scope_candidate_set(scopes: tuple[ExcelExportScope, ...]) -> SlotCandidateSet:
+    return SlotCandidateSet(
+        slot=EXCEL_SCOPE_SLOT,
+        candidates=tuple(
+            SlotCandidate(
+                value=scope,
+                label=scope.label,
+                aliases=(scope.system_no, scope.type_, f"{scope.type_}/{scope.system_no}"),
+            )
+            for scope in scopes
+        ),
+    )
 
 
 def _items(value: object) -> tuple[object, ...]:
@@ -478,6 +473,7 @@ __all__ = [
     "pending_task",
     "records_for_scope",
     "request_from_task",
+    "scope_from_message",
     "scope_param",
     "scopes",
     "sensors_from_message",

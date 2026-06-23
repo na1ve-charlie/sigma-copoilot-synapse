@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from maia.integrations.sigma.data_observation import ObservationIndicator
 
@@ -38,6 +38,13 @@ class ObservationCandidates:
     sensors: tuple[str, ...]
     test_names: tuple[str, ...]
     indicators: tuple[ObservationIndicator, ...]
+    indicator_options: tuple["ObservationIndicatorOption", ...] = ()
+
+
+@dataclass(frozen=True)
+class ObservationIndicatorOption:
+    indicator: ObservationIndicator
+    data_types: tuple[str, ...]
 
 
 @dataclass(frozen=True)
@@ -46,6 +53,7 @@ class ObservationResolution:
     missing_slots: tuple[str, ...]
     invalid_slots: tuple[str, ...]
     candidates: ObservationCandidates
+    invalid_values: dict[str, tuple[str, ...]] = field(default_factory=dict)
 
 
 __all__ = [
@@ -58,6 +66,7 @@ __all__ = [
     "SENSOR_LIST_SLOT",
     "TEST_NAME_LIST_SLOT",
     "ObservationCandidates",
+    "ObservationIndicatorOption",
     "ObservationResolution",
     "ObservationWideRow",
 ]

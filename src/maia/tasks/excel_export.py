@@ -31,6 +31,7 @@ from maia.tasks.excel_export_policy import (
     pending_task,
     records_for_scope,
     request_from_task,
+    scope_from_message,
     scope_param,
     scopes,
     sensors_from_message,
@@ -160,6 +161,8 @@ class ExcelExportHandler:
                 state=self._task_store.clear_pending(state),
             )
         scope = scope_param(task.params.get(EXCEL_SCOPE_SLOT), available_scopes)
+        if scope is None:
+            scope = scope_from_message(context.request.message, available_scopes)
         if scope is None and len(available_scopes) > 1:
             return TaskResult(
                 plan=self._policy.clarify_scope(

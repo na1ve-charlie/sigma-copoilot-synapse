@@ -29,6 +29,7 @@ from maia.tasks.origin_data_export_policy import (
     pending_task,
     request_from_task,
     system_param,
+    system_from_message,
     systems,
 )
 from maia.tasks.record_search import RecordSearchHandler
@@ -161,6 +162,8 @@ class OriginDataExportHandler:
                 plan=self._policy.blocked_plan(task, "missing_system_no", "Selected records do not include systemNo."),
                 state=self._task_store.clear_pending(state),
             )
+        if system_no is None:
+            system_no = system_from_message(context.request.message, available_systems)
         if system_no is None and len(available_systems) > 1:
             return self._clarify_system(context, state, task, records)
         if system_no is None:

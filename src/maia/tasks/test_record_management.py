@@ -26,6 +26,7 @@ from maia.selection.sets import SelectionSet
 from maia.tasks import ConfirmationService, PendingConfirmation, PendingTask, TaskSpec
 from maia.tasks.record_search import RecordSearchHandler
 from maia.tasks.router import TaskContext, TaskResult
+from maia.tasks.slot_value_resolution import MessageSlotResolver, SlotCandidate, SlotCandidateSet
 
 
 BACKUP_INTENT = "task.nvh.data_backup"
@@ -43,6 +44,7 @@ DATA_TYPE_OPTIONS = (
     ("result_data", "结果数据", "resultData"),
 )
 DATA_EXPORT_TYPES = {"delete": 1, "backup": 2, "backup_delete": 3}
+_SLOT_RESOLVER = MessageSlotResolver()
 
 
 class TestRecordManager(Protocol):
@@ -419,29 +421,28 @@ def params_from_prompt_replies(replies) -> dict[str, object]:
 
 
 def data_types_from_message(message: str) -> tuple[str, ...]:
-    normalized = message.casefold()
-    if any(marker in normalized for marker in ("全部数据", "所有数据", "全量数据", "all data")):
-        return tuple(value for value, _, _ in DATA_TYPE_OPTIONS)
-    matched = []
-    for value, _label, aliases in (
-        ("color_map", "彩图", ("彩图", "声彩图", "colormap", "color map")),
-        ("origin_data", "原始数据", ("原始数据", "源数据", "raw data", "origin data")),
-        ("result_data", "结果数据", ("结果数据", "result data")),
-    ):
-        if any(alias in normalized for alias in aliases):
-            matched.append(value)
-    return tuple(dict.fromkeys(matched))
+    return _SLOT_RESOLVER.resolve_message(message, _data_type_candidate_set()).matched
 
 
 def data_types_param(value: object) -> tuple[str, ...]:
-    items = value if isinstance(value, (list, tuple, set)) else (() if value is None else (value,))
-    selected: list[str] = []
-    for item in items:
-        text = str(item).strip().casefold()
-        for data_type, label, backend_key in DATA_TYPE_OPTIONS:
-            if text in {data_type, label.casefold(), backend_key.casefold()} and data_type not in selected:
-                selected.append(data_type)
-    return tuple(selected)
+    return _SLOT_RESOLVER.resolve_value(value, _data_type_candidate_set()).matched
+
+
+def _data_type_candidate_set() -> SlotCandidateSet:
+    aliases = {
+        "color_map": ("声彩图", "colormap", "color map"),
+        "origin_data": ("源数据", "raw data", "origin data"),
+        "result_data": ("result data",),
+    }
+    return SlotCandidateSet(
+        slot=DATA_TYPES_SLOT,
+        candidates=tuple(
+            SlotCandidate(value=value, label=label, aliases=(backend_key, *aliases.get(value, ())))
+            for value, label, backend_key in DATA_TYPE_OPTIONS
+        ),
+        multi=True,
+        all_aliases=("全部数据", "所有数据", "全量数据", "all data"),
+    )
 
 
 def file_name_from_message(message: str) -> str | None:

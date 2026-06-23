@@ -102,6 +102,66 @@ def test_origin_data_export_clarifies_system_no_after_format_reply() -> None:
     ]
 
 
+def test_origin_data_export_resolves_h5_format_from_message() -> None:
+    from maia.runtime import create_maia_runtime
+
+    records = (
+        _record("29181", product_type="A", system_no="SYS-1"),
+    )
+    handler = create_maia_runtime(
+        recognizer=_SequenceRecognizer(
+            [
+                _report(
+                    actions=["task.nvh.origin_data_export"],
+                    operations=[
+                        {"action": "replace", "entity_type": "product_type", "target": "A"},
+                    ],
+                )
+            ]
+        ),
+        record_client=_RecordClient(records),
+        product_catalog=_ProductCatalog(_configs_from_records(records)),
+        origin_export_client=_OriginExporter(),
+        source_version="sigma-fixture-v1",
+    )
+
+    response = asyncio.run(handler.handle_turn(_request("s1", "导出到H5原始数据")))
+
+    assert response.plan.kind == "confirm"
+    assert response.plan.payload["params"]["origin_data_format"] == "H5"
+    assert response.plan.payload["params"]["dataExportType"] == 0
+
+
+def test_origin_data_export_resolves_system_no_from_message_before_prompting() -> None:
+    from maia.runtime import create_maia_runtime
+
+    records = (
+        _record("29181", product_type="A", system_no="SYS-1"),
+        _record("29182", product_type="A", system_no="SYS-2"),
+    )
+    handler = create_maia_runtime(
+        recognizer=_SequenceRecognizer(
+            [
+                _report(
+                    actions=["task.nvh.origin_data_export"],
+                    operations=[
+                        {"action": "replace", "entity_type": "product_type", "target": "A"},
+                    ],
+                )
+            ]
+        ),
+        record_client=_RecordClient(records),
+        product_catalog=_ProductCatalog(_configs_from_records(records)),
+        origin_export_client=_OriginExporter(),
+        source_version="sigma-fixture-v1",
+    )
+
+    response = asyncio.run(handler.handle_turn(_request("s1", "export SYS-2 origin data TDMS")))
+
+    assert response.plan.kind == "confirm"
+    assert response.plan.payload["params"]["system_no"] == "SYS-2"
+
+
 def test_origin_data_export_uses_primary_action_when_embedding_returns_excel_candidate() -> None:
     from maia.runtime import create_maia_runtime
 

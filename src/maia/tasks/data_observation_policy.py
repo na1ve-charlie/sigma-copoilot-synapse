@@ -11,6 +11,7 @@ from maia.tasks.data_observation_models import (
     SENSOR_LIST_SLOT,
     TEST_NAME_LIST_SLOT,
     ObservationCandidates,
+    ObservationIndicatorOption,
     ObservationResolution,
 )
 
@@ -74,11 +75,11 @@ class DataObservationPolicy:
         resolution: ObservationResolution,
         dataset: PlanDataset,
     ) -> ClarifyPlan:
-        slots = resolution.missing_slots or resolution.invalid_slots
+        slots = (*resolution.invalid_slots, *resolution.missing_slots)
         prompts = [self._prompt(slot, resolution.candidates) for slot in slots]
         return ClarifyPlan(
             reason="invalid_slots" if resolution.invalid_slots else "missing_slots",
-            message="Select data observation parameters.",
+            message=self._clarify_message(resolution),
             pending_task=DATA_OBSERVATION_INTENT,
             missing_slots=list(resolution.missing_slots),
             invalid_slots=list(resolution.invalid_slots),
@@ -129,10 +130,34 @@ class DataObservationPolicy:
             required=True,
             input_type="single_select",
             candidates=[
-                PromptCandidate(value=indicator.to_param(), label=indicator.name)
-                for indicator in candidates.indicators
+                PromptCandidate(value=option.indicator.to_param(), label=self._indicator_label(option))
+                for option in self._indicator_options(candidates)
             ],
         )
+
+    def _clarify_message(self, resolution: ObservationResolution) -> str:
+        values = resolution.invalid_values.get(INDICATOR_SLOT, ())
+        if INDICATOR_SLOT in resolution.invalid_slots and values:
+            joined = ", ".join(values)
+            return (
+                f"\u672a\u627e\u5230\u6307\u6807 {joined}"
+                "\uff0c\u8bf7\u4ece\u53ef\u7528\u6307\u6807\u4e2d\u9009\u62e9\u3002"
+            )
+        return "Select data observation parameters."
+
+    def _indicator_options(self, candidates: ObservationCandidates) -> tuple[ObservationIndicatorOption, ...]:
+        if candidates.indicator_options:
+            return candidates.indicator_options
+        return tuple(
+            ObservationIndicatorOption(indicator=indicator, data_types=candidates.data_types)
+            for indicator in candidates.indicators
+        )
+
+    def _indicator_label(self, option: ObservationIndicatorOption) -> str:
+        domains = [DOMAIN_LABELS.get(value, value) for value in option.data_types]
+        if not domains:
+            return option.indicator.name
+        return f"{option.indicator.name}\uff08{' / '.join(domains)}\uff09"
 
 
 __all__ = ["DataObservationPolicy"]

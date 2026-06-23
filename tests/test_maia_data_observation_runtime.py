@@ -41,6 +41,34 @@ def test_data_observation_runtime_returns_ready_params_from_message() -> None:
     }
 
 
+def test_data_observation_runtime_resolves_mic_test_name_and_order_spectrum_from_message() -> None:
+    handler = _runtime(
+        message="我想查看最近一个月的NG件的Mic1、constant1的阶次谱",
+        catalog=_Catalog(
+            availability=(
+                ObservationAvailability("TWO_D_OS", "Mic1", "constant1"),
+                ObservationAvailability("TWO_D_OS", "Mic2", "constant2"),
+            ),
+            indicators={
+                ("TWO_D_OS", "Mic1", "constant1"): (ObservationIndicator(name="阶次谱", index="os-index"),),
+                ("TWO_D_OS", "Mic2", "constant2"): (ObservationIndicator(name="阶次谱", index="os-index"),),
+            },
+        ),
+    )
+
+    response = asyncio.run(
+        handler.handle_turn(_request("s1", "我想查看最近一个月的NG件的Mic1、constant1的阶次谱"))
+    )
+
+    assert response.plan.kind == "task"
+    assert response.plan.params == {
+        "dataType": "TWO_D_OS",
+        "sensorList": ("Mic1",),
+        "testNameList": ("constant1",),
+        "indicator": {"name": "阶次谱", "index": "os-index"},
+    }
+
+
 def test_data_observation_runtime_prompts_and_reuses_catalog_cache() -> None:
     catalog = _Catalog(
         availability=(
@@ -169,6 +197,24 @@ def test_data_observation_runtime_handles_observation_slot_operation() -> None:
     assert response.plan.pending_task == DATA_OBSERVATION_INTENT
     assert response.plan.missing_slots == ["sensorList", "testNameList"]
     assert catalog.availability_calls == ["1226"]
+
+
+def test_data_observation_runtime_reports_unknown_indicator_before_prompting() -> None:
+    handler = _runtime(
+        message="我要看Missing1指标",
+        catalog=_Catalog(
+            availability=(ObservationAvailability("TWO_D_OS", "Mic1", "constant1"),),
+            indicators={("TWO_D_OS", "Mic1", "constant1"): (ObservationIndicator(name="48Ord", index="48"),)},
+        ),
+    )
+
+    response = asyncio.run(handler.handle_turn(_request("s1", "我要看Missing1指标")))
+
+    assert response.plan.kind == "clarify"
+    assert response.plan.reason == "invalid_slots"
+    assert response.plan.invalid_slots == ["indicator"]
+    assert "Missing1" in response.plan.message
+    assert [candidate.label for candidate in response.plan.prompts[0].candidates] == ["48Ord（阶次谱）"]
 
 
 class _Catalog:

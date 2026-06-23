@@ -96,7 +96,11 @@ def test_observation_matcher_returns_full_candidates_for_invalid_combination() -
         )
     ).resolve(
         message="",
-        params={SENSOR_LIST_SLOT: ["Vib1"], TEST_NAME_LIST_SLOT: ["B"]},
+        params={
+            INDICATOR_SLOT: {"name": "倒谱", "index": "cep"},
+            SENSOR_LIST_SLOT: ["Vib1"],
+            TEST_NAME_LIST_SLOT: ["B"],
+        },
         include_message=False,
     )
 
@@ -104,6 +108,69 @@ def test_observation_matcher_returns_full_candidates_for_invalid_combination() -
     assert resolution.candidates.sensors == ("Vib1",)
     assert resolution.candidates.test_names == ("A",)
     assert [item.name for item in resolution.candidates.indicators] == ["倒谱"]
+
+
+def test_observation_matcher_prompts_indicator_before_sensor_and_test_names() -> None:
+    resolution = ObservationMatcher(
+        (
+            _row("TWO_D_OS", "Mic1", "constant1", "48Ord", "48-one"),
+            _row("TWO_D_OS", "Mic2", "constant2", "72Ord", "72-one"),
+            _row("TWO_D_FS", "Mic9", "constant9", "频谱", "fs"),
+        )
+    ).resolve(message="我要看阶次谱", params={}, include_message=True)
+
+    assert resolution.params == {DATA_TYPE_SLOT: "TWO_D_OS"}
+    assert resolution.missing_slots == (INDICATOR_SLOT,)
+    assert [item.name for item in resolution.candidates.indicators] == ["48Ord", "72Ord"]
+
+
+def test_observation_matcher_prompts_data_type_only_for_same_indicator_in_multiple_domains() -> None:
+    resolution = ObservationMatcher(
+        (
+            _row("ONE_D", "Mic1", "constant1", "48Ord", "48"),
+            _row("TWO_D_OC", "Mic1", "constant1", "48Ord", "48"),
+        )
+    ).resolve(message="我要看48Ord", params={}, include_message=True)
+
+    assert resolution.params == {INDICATOR_SLOT: {"name": "48Ord", "index": "48"}}
+    assert resolution.missing_slots == (DATA_TYPE_SLOT,)
+    assert resolution.candidates.data_types == ("ONE_D", "TWO_D_OC")
+
+
+def test_observation_matcher_uses_selected_indicator_domain_for_sensor_and_test_candidates() -> None:
+    resolution = ObservationMatcher(
+        (
+            _row("TWO_D_OS", "Mic1", "constant1", "48Ord", "48"),
+            _row("TWO_D_OS", "Mic2", "constant2", "48Ord", "48"),
+            _row("ONE_D", "Mic9", "constant9", "48Ord", "48"),
+            _row("TWO_D_OS", "Mic3", "constant3", "72Ord", "72"),
+        )
+    ).resolve(
+        message="我要看48Ord阶次谱",
+        params={},
+        include_message=True,
+    )
+
+    assert resolution.params == {
+        DATA_TYPE_SLOT: "TWO_D_OS",
+        INDICATOR_SLOT: {"name": "48Ord", "index": "48"},
+    }
+    assert resolution.missing_slots == (SENSOR_LIST_SLOT, TEST_NAME_LIST_SLOT)
+    assert resolution.candidates.sensors == ("Mic1", "Mic2")
+    assert resolution.candidates.test_names == ("constant1", "constant2")
+
+
+def test_observation_matcher_reports_unknown_explicit_indicator() -> None:
+    resolution = ObservationMatcher(
+        (
+            _row("TWO_D_OS", "Mic1", "constant1", "48Ord", "48"),
+            _row("TWO_D_OS", "Mic2", "constant2", "72Ord", "72"),
+        )
+    ).resolve(message="我要看Missing1指标", params={}, include_message=True)
+
+    assert resolution.invalid_slots == (INDICATOR_SLOT,)
+    assert resolution.invalid_values == {INDICATOR_SLOT: ("Missing1",)}
+    assert [item.name for item in resolution.candidates.indicators] == ["48Ord", "72Ord"]
 
 
 def _row(
