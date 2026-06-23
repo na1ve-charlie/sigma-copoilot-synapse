@@ -1,0 +1,229 @@
+{
+  "base_url_placeholder": "http://sigma.local",
+  "token_header_placeholder": {
+    "Token": "token-1"
+  },
+  "success_codes": [0, 200, "0", "200"],
+  "endpoints": [
+    {
+      "name": "list_test_records",
+      "method": "GET",
+      "path": "/api/storage/singleStationReport/listReportByMulti",
+      "query": {
+        "lang": "zh",
+        "page": 1,
+        "rows": 500,
+        "archive": "false",
+        "keepLast": "false",
+        "onlyRepeatSerial": "false",
+        "type": "dm0608_5",
+        "versionList": "2",
+        "systemNoList": "7s-SNF1001",
+        "sumList": "FAIL"
+      },
+      "response": {
+        "code": 0,
+        "msg": "ok",
+        "data": {
+          "total": 2,
+          "list": [
+            {
+              "recordId": "46704",
+              "testedAt": "2026-06-11T19:38:34Z",
+              "productType": "dm0608_5",
+              "configVersion": "2",
+              "systemNo": "7s-SNF1001",
+              "serialNumber": "SN-46704",
+              "summaryResult": "FAIL",
+              "availableArtifacts": ["raw", "result", "report", "colormap"]
+            },
+            {
+              "recordId": "46703",
+              "testedAt": "2026-06-11T11:57:44Z",
+              "productType": "dm0608_5",
+              "configVersion": "2",
+              "systemNo": "7s-SNF1001",
+              "serialNumber": "SN-46703",
+              "summaryResult": "PASS",
+              "availableArtifacts": ["raw", "result"]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "list_product_configs",
+      "method": "GET",
+      "path": "/api/storage/type",
+      "query": {
+        "page": 1,
+        "rows": 99999,
+        "lang": "zh"
+      },
+      "response": {
+        "code": 200,
+        "data": {
+          "rows": [
+            {
+              "type": "dm0608_5",
+              "version": "2",
+              "systemNo": "7s-SNF1001",
+              "updateTime": "2026-06-12 08:30:00"
+            },
+            {
+              "type": "HZXJ0515",
+              "version": 0,
+              "systemNo": "SYS-01",
+              "updateTime": "2026-06-11 08:30:00"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "list_product_versions",
+      "method": "GET",
+      "path": "/api/storage/type/listVersions",
+      "query": {
+        "typeList": "dm0608_5",
+        "lang": "zh"
+      },
+      "response": {
+        "code": 200,
+        "data": [5, 4, 3, 2, 1, 0]
+      }
+    },
+    {
+      "name": "list_product_systems",
+      "method": "GET",
+      "path": "/api/storage/type/listSystemNos",
+      "query": {
+        "typeList": "dm0608_5",
+        "lang": "zh"
+      },
+      "response": {
+        "code": 200,
+        "data": ["7s-SNF1001", "SYS-01"]
+      }
+    },
+    {
+      "name": "list_sensors",
+      "method": "GET",
+      "path": "/api/storage/config/sensor-list",
+      "query": {
+        "type": "dm0608_5",
+        "systemNo": "7s-SNF1001",
+        "lang": "zh"
+      },
+      "response": {
+        "code": 200,
+        "data": ["Torque", "sensor01", "sensor02"]
+      }
+    },
+    {
+      "name": "excel_export",
+      "method": "POST",
+      "path": "/api/storage/singleStationReport/export",
+      "query": {
+        "lang": "zh"
+      },
+      "body": {
+        "type": "dm0608_5",
+        "systemNo": "7s-SNF1001",
+        "idList": [46704, 46703],
+        "sensorIdList": ["sensor02", "sensor01", "Torque"],
+        "oneData": 1,
+        "twoData": 1,
+        "resultData": 1
+      },
+      "response": {
+        "code": 200,
+        "data": true
+      }
+    },
+    {
+      "name": "origin_export",
+      "method": "POST",
+      "path": "/api/storage/originData/OriginExport",
+      "query": {
+        "lang": "zh"
+      },
+      "body": {
+        "idList": [29181],
+        "path": "D:\\exportOriginFile",
+        "dataExportType": 1,
+        "systemNo": "7s-SNF1001"
+      },
+      "response": {
+        "code": 200,
+        "data": true
+      }
+    },
+    {
+      "name": "save_dataset",
+      "method": "POST",
+      "path": "/api/storage/dataGroup/saveDataGroup",
+      "body": {
+        "lang": "zh",
+        "name": "maia-offline-sample"
+      },
+      "response": {
+        "code": 200,
+        "data": {
+          "id": 1172
+        }
+      }
+    },
+    {
+      "name": "replace_dataset_records",
+      "method": "POST",
+      "path": "/api/storage/dataGroup/saveSelectedResult",
+      "query": {
+        "lang": "zh"
+      },
+      "body": {
+        "id": 1172,
+        "info": null,
+        "name": "maia-offline-sample",
+        "resultList": [
+          {
+            "colorId": null,
+            "resultId": 46704,
+            "serialNo": "SN-46704",
+            "testTime": "2026-06-11 19:38:34",
+            "version": "2",
+            "systemNo": "7s-SNF1001",
+            "type": "dm0608_5"
+          }
+        ],
+        "copyStatus": false
+      },
+      "response": {
+        "code": 200,
+        "data": true
+      }
+    },
+    {
+      "name": "test_record_management_backup",
+      "method": "POST",
+      "path": "/api/storage/dataFile/exportData",
+      "query": {
+        "lang": "zh"
+      },
+      "body": {
+        "resultIdList": [46704, 46703],
+        "colorMap": true,
+        "originData": true,
+        "resultData": false,
+        "dataExportType": 2,
+        "filePath": "D:/\u93c1\u7248\u5d41\u6fb6\u56e6\u5524/",
+        "fileName": "backup-001"
+      },
+      "response": {
+        "code": 200,
+        "data": true
+      }
+    }
+  ]
+}
+

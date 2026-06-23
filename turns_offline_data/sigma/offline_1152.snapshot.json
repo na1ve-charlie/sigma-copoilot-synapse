@@ -1,0 +1,38 @@
+{
+  "id": "offline_1152",
+  "name": "offline / dataset 1152",
+  "workspace_context": {
+    "lang": "zh"
+  },
+  "rows": [
+    {
+      "domain": "ONE_D",
+      "sensor": "Vib1",
+      "test_segment": "1500rpm",
+      "indicator": "Order48",
+      "label": "one-d-48"
+    },
+    {
+      "domain": "TWO_D_OC",
+      "sensor": "sensor01",
+      "test_segment": "Spd-rDL",
+      "indicator": "Order48",
+      "label": "order-cut-48"
+    },
+    {
+      "domain": "TWO_D_FS",
+      "sensor": "sensor01",
+      "test_segment": "Spd-rDL",
+      "indicator": "Spectrum",
+      "label": "fs-spectrum"
+    },
+    {
+      "domain": "TWO_D_CEP",
+      "sensor": "sensor02",
+      "test_segment": "Spd-rCH",
+      "indicator": "Cepstrum",
+      "label": "cepstrum"
+    }
+  ]
+}
+

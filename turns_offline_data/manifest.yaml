@@ -1,0 +1,49 @@
+name: TurnsOfflineDataExport
+version: "2026-06-18"
+purpose: >
+  Data-only export for accessing POST /turns while SigMA backend access is
+  unavailable. Mock implementation is intentionally out of scope.
+source_notes:
+  turns_contract_model: src/maia/api/turns.py
+  turns_response_samples: configs/maia/testdata/turns_response_samples.yaml
+  sigma_fixture_manifest: configs/maia/testdata/sigma_fixture_manifest.yaml
+  sigma_adapter_tests:
+    - tests/test_maia_sigma_record_client.py
+    - tests/test_maia_sigma_product_catalog.py
+    - tests/test_maia_sigma_excel_export.py
+    - tests/test_maia_sigma_origin_export.py
+    - tests/test_maia_sigma_dataset_materializer.py
+    - tests/test_maia_sigma_test_record_management.py
+files:
+  - path: turns/request_examples.json
+    kind: turns_request_examples
+    notes:
+      - Public TurnRequest accepts session_id, message, prompt_replies, workspace_context.
+      - prompt_replies are accepted by the API model but excluded from normal model dumps.
+  - path: turns/response_samples.yaml
+    kind: turns_response_samples
+    notes:
+      - Covers reply, clarify, task, confirm, context_update, context_clear.
+      - Top-level wrapper must stay { plan: ... }.
+  - path: sigma/offline_1152.workspace_context.json
+    kind: workspace_context
+    notes:
+      - Current fixture only carries lang=zh.
+  - path: sigma/offline_1152.snapshot.json
+    kind: sigma_offline_snapshot
+    notes:
+      - Small stable snapshot for resolver/domain candidate data.
+  - path: sigma/backend_endpoint_samples.json
+    kind: sigma_backend_endpoint_samples
+    notes:
+      - Data-only method/path/query/body/response examples for current SigMA adapters.
+      - Token values are placeholders and should not be treated as credentials.
+turns_endpoint:
+  method: POST
+  path: /turns
+  request_required_fields: [session_id, message]
+  request_optional_fields: [prompt_replies, workspace_context]
+  response_required_top_level_fields: [plan]
+  routing_field: plan.kind
+  plan_kinds: [reply, clarify, task, confirm, context_update, context_clear]
+

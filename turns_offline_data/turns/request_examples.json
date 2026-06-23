@@ -1,0 +1,53 @@
+{
+  "endpoint": {
+    "method": "POST",
+    "path": "/turns",
+    "content_type": "application/json"
+  },
+  "cases": [
+    {
+      "name": "minimal_message",
+      "request": {
+        "session_id": "offline-s1",
+        "message": "show A records"
+      }
+    },
+    {
+      "name": "message_with_workspace_context",
+      "request": {
+        "session_id": "offline-s1",
+        "message": "show failing records",
+        "workspace_context": {
+          "lang": "zh"
+        }
+      }
+    },
+    {
+      "name": "slot_prompt_reply",
+      "request": {
+        "session_id": "offline-s1",
+        "message": "",
+        "prompt_replies": [
+          {
+            "prompt_id": "config_version",
+            "value": "2"
+          }
+        ],
+        "workspace_context": {
+          "lang": "zh"
+        }
+      }
+    },
+    {
+      "name": "confirmation_reply",
+      "request": {
+        "session_id": "offline-s1",
+        "message": "confirm",
+        "workspace_context": {
+          "lang": "zh"
+        }
+      }
+    }
+  ]
+}
+

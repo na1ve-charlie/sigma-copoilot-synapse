@@ -1,0 +1,107 @@
+response_contract: TurnResponse
+cases:
+  - name: reply candidates
+    response:
+      plan:
+        kind: reply
+        message: Available sensors.
+        dataset: {}
+        data:
+          slot_name: sensors
+          candidates: [S1, S2, S3]
+        suggestions: [S1, S2, S3]
+        slot_state_diff:
+          changes: []
+
+  - name: clarify missing slot
+    response:
+      plan:
+        kind: clarify
+        reason: missing_slots
+        message: Please choose a sensor.
+        dataset: {}
+        pending_task: query_frequency_spectrum
+        missing_slots: [sensors]
+        prompts:
+          - id: sensors
+            target: slot
+            label: Sensor
+            message: Select one sensor.
+            required: true
+            input_type: single_select
+            candidates:
+              - value: S1
+                label: Seat 1
+              - value: S2
+                label: Seat 2
+        suggestions: [S1, S2]
+        slot_state_diff:
+          changes: []
+
+  - name: task ready
+    response:
+      plan:
+        kind: task
+        status: ready
+        name: query_frequency_spectrum
+        intent: task.nvh.data_observation.batch.frequency_spectrum
+        title: Query frequency spectrum
+        risk_level: low
+        requires_confirmation: false
+        dataset: {}
+        params:
+          sensors: [S1]
+          test_segments: [TS-01]
+          indicator_names:
+            - name: RMS
+              index: rms-001
+          data_types: [TWO_D_FS]
+        message: "Task is ready: Query frequency spectrum"
+        slot_state_diff:
+          changes:
+            - slot: sensors
+              before: null
+              after: [S1]
+
+  - name: confirm delete
+    response:
+      plan:
+        kind: confirm
+        reason: high_risk_operation
+        message: Confirm deletion of the selected records.
+        dataset: {}
+        payload:
+          operation: data_delete
+          selection_summary:
+            record_count: 3
+        slot_state_diff:
+          changes: []
+
+  - name: context update
+    response:
+      plan:
+        kind: context_update
+        message: Context updated.
+        dataset: {}
+        projected_slots:
+          sensors: [S2]
+        slot_state_diff:
+          changes:
+            - slot: sensors
+              before: [S1]
+              after: [S2]
+
+  - name: context clear
+    response:
+      plan:
+        kind: context_clear
+        message: Context cleared.
+        dataset: {}
+        preserved: [workspace_context]
+        cleared: [sensors, indicator_names]
+        slot_state_diff:
+          changes:
+            - slot: sensors
+              before: [S2]
+              after: null
+
