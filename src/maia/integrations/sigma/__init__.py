@@ -45,6 +45,13 @@ from maia.integrations.sigma.excel_export import (
     SensorListError,
     SensorListTransport,
 )
+from maia.integrations.sigma.audio_generation import (
+    NG_AUDIO_GENERATION_PATH,
+    NgAudioGenerationClient,
+    NgAudioGenerationError,
+    NgAudioGenerationRequest,
+    NgAudioGenerationTransport,
+)
 from maia.integrations.sigma.test_record_management import (
     DEFAULT_BACKUP_PATH,
     TEST_RECORD_MANAGEMENT_PATH,
@@ -82,6 +89,11 @@ __all__ = [
     "LIST_PRODUCT_VERSIONS_OPERATION",
     "LIST_TEST_RECORDS_OPERATION",
     "MutableSigmaTokenProvider",
+    "NG_AUDIO_GENERATION_PATH",
+    "NgAudioGenerationClient",
+    "NgAudioGenerationError",
+    "NgAudioGenerationRequest",
+    "NgAudioGenerationTransport",
     "ORIGIN_EXPORT_PATH",
     "OriginExportClient",
     "OriginExportError",

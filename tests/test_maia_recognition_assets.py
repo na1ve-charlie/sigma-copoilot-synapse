@@ -199,6 +199,15 @@ def test_data_management_tree_examples_keep_terminal_actions_slotless() -> None:
         assert examples[message]["intents"] == intents
 
 
+def test_audio_generation_tree_example_keeps_ng_as_task_parameter() -> None:
+    payload = yaml.safe_load(TREE_PROMPT_EXAMPLES_PATH.read_text(encoding="utf-8"))
+    examples = {example["input"]: example for example in payload["examples"]}
+
+    assert examples["帮我生成 NG 音频"]["intents"] == [
+        _slotless_intent("task.nvh.audio.generate")
+    ]
+
+
 def test_data_management_tree_examples_are_within_render_budget() -> None:
     examples_payload = yaml.safe_load(TREE_PROMPT_EXAMPLES_PATH.read_text(encoding="utf-8"))
     prompt_payload = yaml.safe_load(TREE_PROMPT_PATH.read_text(encoding="utf-8"))
@@ -209,6 +218,7 @@ def test_data_management_tree_examples_are_within_render_budget() -> None:
         "帮我删除这批测试记录",
         "备份这批测试记录",
         "先备份这批测试记录，然后删除本地原始数据",
+        "帮我生成 NG 音频",
     )
 
     assert max(example_inputs.index(message) for message in required_examples) < max_examples
@@ -221,6 +231,7 @@ def test_terminal_action_tree_examples_do_not_emit_slot_operations() -> None:
         "task.nvh.excel_export",
         "task.nvh.data_backup",
         "task.nvh.data_delete",
+        "task.nvh.audio.generate",
     }
 
     for example in payload["examples"]:
@@ -232,6 +243,25 @@ def test_terminal_action_tree_examples_do_not_emit_slot_operations() -> None:
             assert intent["target"] == ""
             assert "target_from" not in intent
             assert intent["slot_valid"] is True
+
+
+def test_tree_prompt_examples_do_not_include_sensor_resolver_query() -> None:
+    payload = yaml.safe_load(TREE_PROMPT_EXAMPLES_PATH.read_text(encoding="utf-8"))
+
+    assert "inquiry.nvh.resolver_query.sensors" not in {
+        intent.get("intent")
+        for example in payload["examples"]
+        for intent in example["intents"]
+    }
+
+
+def test_tree_prompt_examples_do_not_include_context_switch_examples() -> None:
+    payload = yaml.safe_load(TREE_PROMPT_EXAMPLES_PATH.read_text(encoding="utf-8"))
+
+    assert {
+        "去掉 {old_sensor} 加上 {new_sensor}",
+        "切换到 {segment} 后查看 {observation_name}",
+    }.isdisjoint({example["input"] for example in payload["examples"]})
 
 
 def _load_maia_entries() -> list[Any]:
