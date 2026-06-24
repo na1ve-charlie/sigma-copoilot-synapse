@@ -119,6 +119,38 @@ def test_test_record_management_delete_and_backup_normalizes_to_combined_operati
     assert response.plan.payload["params"]["fileName"] == "backup-001"
 
 
+def test_test_record_management_parses_artifacts_adjacent_to_combined_action() -> None:
+    from maia.runtime import create_maia_runtime
+
+    records = (_record("46704", product_type="A"),)
+    handler = create_maia_runtime(
+        recognizer=_SequenceRecognizer(
+            [
+                _report(
+                    actions=["task.nvh.data_backup", "task.nvh.data_delete"],
+                    operations=[{"action": "replace", "entity_type": "product_type", "target": "A"}],
+                )
+            ]
+        ),
+        record_client=_RecordClient(records),
+        product_catalog=_ProductCatalog(_configs_from_records(records)),
+        test_record_management_client=_Manager(),
+        source_version="sigma-fixture-v1",
+    )
+
+    response = asyncio.run(
+        handler.handle_turn(
+            _request("s1", "帮我备份并删除彩图、原始数据 文件名为backup-001")
+        )
+    )
+
+    assert response.plan.kind == "confirm"
+    assert response.plan.payload["params"]["colorMap"] is True
+    assert response.plan.payload["params"]["originData"] is True
+    assert response.plan.payload["params"]["resultData"] is False
+    assert response.plan.payload["params"]["dataExportType"] == 3
+
+
 def test_test_record_management_clarifies_invalid_file_name() -> None:
     from maia.runtime import create_maia_runtime
 

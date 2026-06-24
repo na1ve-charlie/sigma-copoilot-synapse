@@ -20,6 +20,7 @@ from maia.integrations.sigma.excel_export import ExcelExportError, ExcelExportRe
 from maia.integrations.sigma.records import TestRecordSummary
 from maia.selection.sets import SelectionSet
 from maia.tasks import PendingConfirmation, PendingTask, TaskSpec
+from maia.tasks.excel_export_data_types import ExcelExportDataTypeParser
 from maia.tasks.slot_value_resolution import MessageSlotResolver, SlotCandidate, SlotCandidateSet
 
 
@@ -30,11 +31,8 @@ EXCEL_SCOPE_SLOT = "excel_scope"
 PENDING_SELECTION_MARKER = f"__task__:{EXCEL_EXPORT_INTENT}"
 CONFIRM_VALUES = {"\u786e\u8ba4", "\u662f", "\u597d\u7684", "\u6267\u884c", "confirm", "yes", "y"}
 CANCEL_VALUES = {"\u53d6\u6d88", "\u4e0d\u7528", "\u4e0d\u8981", "cancel", "no", "n"}
-DATA_TYPE_OPTIONS = (
-    ("one_data", "\u4e00\u7ef4\u6570\u636e", "oneData"),
-    ("two_data", "\u4e8c\u7ef4\u6570\u636e", "twoData"),
-    ("result_data", "\u7ed3\u679c\u6570\u636e", "resultData"),
-)
+_DATA_TYPE_PARSER = ExcelExportDataTypeParser()
+DATA_TYPE_OPTIONS = _DATA_TYPE_PARSER.options
 _SLOT_RESOLVER = MessageSlotResolver()
 
 
@@ -292,11 +290,11 @@ def sensor_param(value: object) -> tuple[str, ...]:
 
 
 def data_types_param(value: object) -> tuple[str, ...]:
-    return _SLOT_RESOLVER.resolve_value(value, _data_type_candidate_set()).matched
+    return _DATA_TYPE_PARSER.parse_value(value)
 
 
 def data_types_from_message(message: str) -> tuple[str, ...]:
-    return _SLOT_RESOLVER.resolve_message(message, _data_type_candidate_set()).matched
+    return _DATA_TYPE_PARSER.parse_message(message)
 
 
 def sensors_from_message(message: str, candidates: tuple[str, ...]) -> tuple[str, ...]:
@@ -406,23 +404,6 @@ def _request_flags(data_types: tuple[str, ...]) -> dict[str, int]:
         "two_data": flags["twoData"],
         "result_data": flags["resultData"],
     }
-
-
-def _data_type_candidate_set() -> SlotCandidateSet:
-    aliases = {
-        "one_data": ("\u4e00\u7ef4", "1d", "one data"),
-        "two_data": ("\u4e8c\u7ef4", "2d", "two data"),
-        "result_data": ("\u7ed3\u679c", "result"),
-    }
-    return SlotCandidateSet(
-        slot=EXCEL_DATA_TYPES_SLOT,
-        candidates=tuple(
-            SlotCandidate(value=value, label=label, aliases=(backend_key, *aliases.get(value, ())))
-            for value, label, backend_key in DATA_TYPE_OPTIONS
-        ),
-        multi=True,
-        all_aliases=("\u5168\u90e8\u6570\u636e", "\u6240\u6709\u6570\u636e", "\u5168\u91cf\u6570\u636e", "all data"),
-    )
 
 
 def _sensor_candidate_set(candidates: tuple[str, ...]) -> SlotCandidateSet:

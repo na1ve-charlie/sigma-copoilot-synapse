@@ -231,6 +231,41 @@ def test_excel_export_parses_named_sensor_and_one_dimensional_data_from_message(
     assert response.plan.payload["params"]["resultData"] == 0
 
 
+def test_excel_export_parses_named_sensor_and_all_requested_data_types() -> None:
+    from maia.runtime import create_maia_runtime
+
+    records = (
+        _record("46704", product_type="dm0608", config_version="5", system_no="7s-SNF1001"),
+    )
+    handler = create_maia_runtime(
+        recognizer=_SequenceRecognizer(
+            [
+                _report(
+                    actions=["task.nvh.excel_export"],
+                    operations=[{"action": "replace", "entity_type": "product_type", "target": "dm0608"}],
+                )
+            ]
+        ),
+        record_client=_RecordClient(records),
+        product_catalog=_ProductCatalog(_configs_from_records(records)),
+        sensor_list_client=_SensorLister(("Mic1", "Mic2")),
+        excel_export_client=_ExcelExporter(),
+        source_version="sigma-fixture-v1",
+    )
+
+    response = asyncio.run(
+        handler.handle_turn(
+            _request("s1", "我想导出Mic2的一维指标、二维指标以及结果数据到Excel中")
+        )
+    )
+
+    assert response.plan.kind == "confirm"
+    assert response.plan.payload["params"]["sensorIdList"] == ("Mic2",)
+    assert response.plan.payload["params"]["oneData"] == 1
+    assert response.plan.payload["params"]["twoData"] == 1
+    assert response.plan.payload["params"]["resultData"] == 1
+
+
 def test_excel_export_clarifies_single_scope_for_multiple_product_config_systems() -> None:
     from maia.runtime import create_maia_runtime
 

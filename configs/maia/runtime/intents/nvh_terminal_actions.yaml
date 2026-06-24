@@ -5,20 +5,20 @@ intents:
   tree_text: 用户想按当前或新给出的筛选条件查询记录列表，不是在请求导出、删除、报告、音频或重计算。
 - name: task.nvh.origin_data_export
   domain: nvh.data_export
-  embed_text: 导出原始数据, 导出 TDMS, 导出 H5 原始数据, raw data export, 下载原始测试文件
-  tree_text: 用户想导出当前筛选范围内的原始测试数据文件。只有原始数据、raw data、TDMS、H5 原始文件应匹配；导出 Excel、下载报告、生成音频、导出结果数据或查询记录不应匹配。
+  embed_text: 导出原始数据, 导出时域波形, 导出工况数据, 导出 TDMS, 导出 H5 原始数据, raw data export, 下载原始测试文件
+  tree_text: 用户想导出当前筛选范围内的原始测试数据文件。原始数据在业务中也称时域波形、工况数据；原始数据、这些业务别名、raw data、TDMS、H5 原始文件应匹配。导出 Excel、下载报告、生成音频、导出结果数据或查询记录不应匹配。
 - name: task.nvh.excel_export
   domain: nvh.data_export
-  embed_text: 导出 Excel, 导出一维数据到 Excel, 导出二维数据 Excel, 导出结果数据 Excel, 下载 Excel, single station report export
-  tree_text: 用户想把当前筛选范围内的记录导出为 Excel 或单站报表数据。Excel 导出可以包含传感器列表、一维数据、二维数据、结果数据等任务参数；这些参数由应用层 task handler 二次解析，不作为 Themis slot。导出原始数据、TDMS、H5 原始文件、下载报告、生成音频或只查询记录不应匹配。
+  embed_text: 导出 Excel, 导出一维数据到 Excel, 导出一维指标到 Excel, 导出二维数据 Excel, 导出二维指标 Excel, 导出结果数据 Excel, 下载 Excel, single station report export
+  tree_text: 用户想把当前筛选范围内的记录导出为 Excel 或单站报表数据。Excel 导出可以包含传感器列表、一维数据或一维指标、二维数据或二维指标、结果数据等任务参数；这些参数由应用层 task handler 二次解析，不作为 Themis slot。导出原始数据、TDMS、H5 原始文件、下载报告、生成音频或只查询记录不应匹配。
 - name: task.nvh.data_backup
   domain: nvh.data_management
-  embed_text: 备份数据, 先备份, backup data, 备份这些记录, 备份当前结果
-  tree_text: 用户想备份当前选择的数据，可与删除组合成有序复合意图。区分：单纯导出不应匹配备份。
+  embed_text: 备份数据, 先备份, backup data, 备份这些记录, 备份彩图, 备份原始数据, 备份时域波形, 备份工况数据, 备份结果数据
+  tree_text: 用户想备份当前选择的记录或其数据制品，可与删除组合成有序复合意图。该终止任务必须无 slot 输出；备份不是 slot action。彩图、原始数据（包括时域波形、工况数据）和结果数据是应用层解析的任务参数，不得映射为 Themis entity_type。单纯导出不应匹配备份。
 - name: task.nvh.data_delete
   domain: nvh.data_management
-  embed_text: 删除数据, 删掉这些数据, 清理当前数据, delete data, 删除本地原始数据
-  tree_text: 用户想删除当前选择的数据。区分：删除数据集、删除配置或普通查询不应匹配这里。
+  embed_text: 删除数据, 删掉这些数据, 清理当前数据, delete data, 删除彩图, 删除原始数据, 删除时域波形, 删除工况数据, 删除结果数据
+  tree_text: 用户想删除当前选择的记录或其数据制品。该终止任务必须无 slot 输出；删除是任务动作，禁止编码为 slot action=remove。彩图、原始数据（包括时域波形、工况数据）和结果数据是应用层解析的任务参数，不得映射为 data_kind、archive_status 或其他 Themis entity_type。只要删除动作明确，就不应因制品名称被误分到查询或观察意图。删除数据集、删除配置或普通查询不应匹配这里。
 - name: task.nvh.data_observation.view_indicator_result
   domain: nvh.data_observation
   embed_text: 查看指标结果, 查看结果数据, 查看某个指标, 看指标图, 观察数据, 看一维指标, 看时间域, 看频谱, 看阶次谱, 看阶次切片, 看倒谱, 看心理声学, observation result

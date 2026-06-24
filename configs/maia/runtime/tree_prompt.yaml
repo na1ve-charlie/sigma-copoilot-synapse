@@ -33,7 +33,7 @@ template: |
   - Never output removed legacy intent names such as "task.nvh.data_export".
   - For task.nvh.origin_data_export, output empty action, entity_type, and target. H5 and TDMS are task parameters handled after intent recognition, not Themis slots.
   - For task.nvh.excel_export, output empty action, entity_type, and target. Sensor list and one/two/result data types are task parameters handled after intent recognition, not Themis slots.
-  - For task.nvh.data_backup and task.nvh.data_delete, output empty action, entity_type, and target. Data types and backup file name are task parameters handled after intent recognition, not Themis slots.
+  - For task.nvh.data_backup and task.nvh.data_delete, ALWAYS output empty action, entity_type, and target. "Backup" and "delete" describe terminal task operations, never Themis slot actions; do not encode deletion as action="remove", and do not map artifact names to data_kind, archive_status, or any other entity_type. Data types and backup file name are task parameters handled after intent recognition.
   - For task.nvh.audio.generate, output empty action, entity_type, and target. NG audio generation filters NG records inside the task handler, not as Themis slots.
   - For task.nvh.data_observation.view_indicator_result, output empty action, entity_type, and target. Indicator domain, sensor list, test segment list, and indicator are task parameters handled after intent recognition, not Themis slots.
   - Do not use data_kind for export requests. data_kind is only for record-search filtering.

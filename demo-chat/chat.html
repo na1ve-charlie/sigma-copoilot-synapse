@@ -914,6 +914,21 @@ input, textarea { font-family: inherit; color: inherit; }
   font-size: 10px;
   transition: transform 150ms;
 }
+.sum-arr-toggle {
+  cursor: pointer;
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin-left: 4px;
+  transition: color 150ms;
+  user-select: none;
+}
+.sum-arr-toggle:hover { color: var(--accent); }
+.sum-arr-extra { display: none; }
+.sum-arr-count {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  margin-left: 6px;
+}
 .card-confirm-payload { padding: 0 20px 16px; }
 .card-confirm-footer {
   padding: 12px 20px;
@@ -1230,7 +1245,13 @@ function showSession(id) {
   hideWelcome();
   topbarTitle.textContent = s.title || 'SigMA Copilot';
   chatArea.innerHTML = '';
-  s.messages.forEach(m => appendMessage(m));
+  let bi = 0;
+  s.messages.forEach(m => {
+    if (m.role === 'bot') appendMessage(m, bi++);
+    else appendMessage(m);
+  });
+  // Restore unsaved draft selections for clarify cards
+  restoreDraftSelections(id);
   scrollDown();
 }
 
@@ -1327,7 +1348,7 @@ async function sendMessage(opts) {
     const botMsg = { role: 'bot', plan: data.plan, ts: Date.now() };
     session.messages.push(botMsg);
     saveState();
-    appendMessage(botMsg);
+    appendMessage(botMsg, session.messages.filter(m => m.role === 'bot').length - 1);
 
     // Update title from first meaningful exchange
     if (session.messages.length <= 2) {
@@ -1343,10 +1364,12 @@ async function sendMessage(opts) {
   scrollDown();
 }
 
-function collectPromptReplies() {
+function collectPromptReplies(card) {
   const replies = [];
-  const cards = document.querySelectorAll('.card-clarify');
-  const card = cards[cards.length - 1];
+  if (!card) {
+    const cards = document.querySelectorAll('.card-clarify');
+    card = cards[cards.length - 1];
+  }
   if (!card) return replies;
   card.querySelectorAll('.prompt-section[data-prompt-id]').forEach(el => {
     const id = el.dataset.promptId;
@@ -1425,12 +1448,22 @@ function hideThinking() {
 /* ============================================================
    MESSAGE RENDERING
    ============================================================ */
-function appendMessage(msg) {
+function appendMessage(msg, botIdx) {
   const el = document.createElement('div');
   if (msg.role === 'user') {
     renderUser(el, msg);
   } else if (msg.plan) {
     renderPlan(el, msg.plan);
+    if (botIdx != null && isFrozenMsg(botIdx)) {
+      const card = el.querySelector('.card-clarify, .card-task, .card-confirm');
+      if (card) { card.style.pointerEvents = 'none'; card.classList.add('card-frozen'); }
+      // Restore visual selection state and button texts
+      const data = getFrozenData(botIdx);
+      if (data) {
+        if (data.sel) restoreSelections(card, data.sel);
+        restoreFrozenButtonTexts(card, data);
+      }
+    }
   }
   chatArea.appendChild(el);
   scrollDown();
@@ -1565,7 +1598,7 @@ function buildCardBody(prompt, candidates) {
         `).join('')}
       </div>`;
   } else {
-    body = `<input class="input-prompt" type="text" placeholder="${escAttr(prompt.message)}">`;
+    body = `<input class="input-prompt" type="text" placeholder="${escAttr(prompt.message)}" oninput="saveDraftFromCard(this)">`;
   }
   return `
     <div class="prompt-section" data-prompt-id="${escAttr(prompt.id)}" data-input-type="${escAttr(prompt.input_type)}">
@@ -1771,11 +1804,13 @@ function selectSearchRow(row) {
   const listWrap = row.closest('.selector-list-wrap');
   listWrap.querySelectorAll('.selector-row').forEach(r => r.classList.remove('selected'));
   row.classList.add('selected');
+  saveDraftFromCard(row);
 }
 
 /* ── Toggle a row (multi_select) ── */
 function toggleSearchRow(row) {
   row.classList.toggle('selected');
+  saveDraftFromCard(row);
 }
 
 
@@ -1787,17 +1822,28 @@ function renderTask(el, plan) {
   const paramLabels = {
     type: '产品型号', versionList: '配置序号', systemNoList: '系统编号',
     startTime: '开始时间', endTime: '结束时间', archive: '归档',
-    keepLast: '仅保留最新', onlyRepeatSerial: '仅重复序列号', lang: '语言', sumList: '判定结果'
+    keepLast: '仅保留最新', onlyRepeatSerial: '仅重复序列号', lang: '语言', sumList: '判定结果',
+    indicator: '指标', dataType: '指标域', sensorList: '传感器', testNameList: '测试段'
+  };
+  const dataTypeLabels = {
+    ONE_D: '一维指标', TWO_D_TD: '时间域', TWO_D_FS: '频谱',
+    TWO_D_OS: '阶次谱', TWO_D_OC: '阶次切片', TWO_D_CEP: '倒谱', TWO_D_PS: '心理声学'
   };
   const hiddenParams = ['lang', 'archive', 'keepLast', 'onlyRepeatSerial'];
   const selParams = (plan.dataset && plan.dataset.selection_params) || {};
-  const paramsEntries = Object.keys(selParams).length
+  const selEntries = Object.keys(selParams).length
     ? Object.entries(selParams).filter(([k]) => !hiddenParams.includes(k))
-    : Object.entries(plan.params || {}).filter(([k]) => !hiddenParams.includes(k));
-  const paramsHtml = paramsEntries.map(([k, v]) => `
+    : [];
+  const taskEntries = Object.keys(plan.params || {}).length
+    ? Object.entries(plan.params).filter(([k]) => !hiddenParams.includes(k))
+    : [];
+  const paramsHtml = [...selEntries, ...taskEntries].map(([k, v]) => {
+    const displayVal = (k === 'dataType' && typeof v === 'string') ? (dataTypeLabels[v] || v) : v;
+    return `
     <div class="param-key">${escHtml(paramLabels[k] || k)}</div>
-    <div class="param-value">${escHtml(formatParam(v))}</div>
-  `).join('');
+    <div class="param-value">${escHtml(formatParam(displayVal))}</div>
+  `;
+  }).join('');
 
   // Dataset info — shown as a sub-header in the card body
   const dsName = plan.dataset ? plan.dataset.dataset_name : '';
@@ -1895,6 +1941,7 @@ function renderConfirm(el, plan) {
   `;
 }
 
+let _arrCounter = 0;
 function summarizePayload(payload) {
   if (!payload) return '';
   const lines = [];
@@ -1905,8 +1952,26 @@ function summarizePayload(payload) {
   }
   if (payload.params) {
     const paramKeys = Object.keys(payload.params);
-    if (paramKeys.length === 1 && Array.isArray(payload.params[paramKeys[0]])) {
-      lines.push(`<div class="sum-row"><span class="sum-key">${escHtml(paramKeys[0])}</span><span class="sum-val">${payload.params[paramKeys[0]].length} 条</span></div>`);
+    for (const key of paramKeys) {
+      const val = payload.params[key];
+      if (typeof val === 'string' || typeof val === 'number' || typeof val === 'boolean') {
+        lines.push(`<div class="sum-row"><span class="sum-key">${escHtml(key)}</span><span class="sum-val">${escHtml(String(val))}</span></div>`);
+      } else if (Array.isArray(val)) {
+        const count = val.length;
+        _arrCounter++;
+        const extraId = 'arr-x-' + _arrCounter;
+        const toggleId = 'arr-t-' + _arrCounter;
+        const items = val.map(x => typeof x === 'object' ? JSON.stringify(x) : String(x));
+        const visible = items.slice(0, 5).map(x => escHtml(x)).join(', ');
+        if (count <= 5) {
+          lines.push(`<div class="sum-row"><span class="sum-key">${escHtml(key)}</span><span class="sum-val">[${visible}]</span><span class="sum-arr-count">${count} 项</span></div>`);
+        } else {
+          const hidden = items.slice(5).map(x => escHtml(x)).join(', ');
+          lines.push(`<div class="sum-row"><span class="sum-key">${escHtml(key)}</span><span class="sum-val">[${visible}, <span class="sum-arr-extra" id="${extraId}">${hidden}</span><span class="sum-arr-toggle" id="${toggleId}" onclick="toggleArrDetail('${extraId}','${toggleId}')">展开全部 ▸</span>]</span><span class="sum-arr-count">${count} 项</span></div>`);
+        }
+      } else if (typeof val === 'object' && val !== null) {
+        lines.push(`<div class="sum-row"><span class="sum-key">${escHtml(key)}</span><span class="sum-val">${escHtml(JSON.stringify(val))}</span></div>`);
+      }
     }
   }
   if (lines.length === 0) return '';
@@ -1922,6 +1987,15 @@ function toggleDetail(id, toggleEl) {
   const arrow = toggleEl.querySelector('.toggle-arrow');
   if (label) label.textContent = isOpen ? '查看详情' : '收起详情';
   if (arrow) arrow.textContent = isOpen ? '▸' : '▾';
+}
+
+function toggleArrDetail(extraId, toggleId) {
+  const extra = document.getElementById(extraId);
+  const toggle = document.getElementById(toggleId);
+  if (!extra || !toggle) return;
+  const isHidden = getComputedStyle(extra).display === 'none';
+  extra.style.display = isHidden ? 'inline' : 'none';
+  toggle.textContent = isHidden ? '收起 ▾' : '展开全部 ▸';
 }
 
 /* ── Context ── */
@@ -1962,21 +2036,24 @@ function selectOption(el) {
   const group = el.closest('.option-cards');
   group.querySelectorAll('.option-card').forEach(c => c.classList.remove('selected'));
   el.classList.add('selected');
+  saveDraftFromCard(el);
 }
 
 function toggleChip(el) {
   el.classList.toggle('selected');
+  saveDraftFromCard(el);
 }
 
 function submitClarify(btn) {
-  disableCardButtons(btn);
-  btn.textContent = '已提交';
-  // Save recent selections before collecting
   const card = btn.closest('.card-clarify');
+  const replies = collectPromptReplies(card);
+  disableCardButtons(btn, replies, 'submitted');
+  btn.textContent = '已提交';
   saveRecentFromCard(card);
-  const replies = collectPromptReplies();
-  // Send a synthetic message with the replies
+  // Clear draft for this session since the card is now frozen
   const session = getActiveSession();
+  if (session) clearDraftSelections(session.id);
+  // Send a synthetic message with the replies
   if (!session) return;
   const promptMsg = replies.map(r => `${r.prompt_id}: ${Array.isArray(r.value) ? r.value.join(', ') : r.value}`).join('; ');
   msgInput.value = `[已选择] ${promptMsg}`;
@@ -1984,41 +2061,74 @@ function submitClarify(btn) {
 }
 
 function cancelClarify(btn) {
-  disableCardButtons(btn);
+  disableCardButtons(btn, null, 'cancelled_clarify');
   btn.textContent = '已取消';
+  // Clear draft for this session since the card is now frozen
+  const session = getActiveSession();
+  if (session) clearDraftSelections(session.id);
   msgInput.value = '取消';
   sendMessage({ includePromptReplies: false });
 }
 
 function dismissCard(btn) {
-  disableCardButtons(btn);
+  disableCardButtons(btn, null, 'cancelled');
   btn.textContent = '已取消';
   msgInput.value = 'N';
   sendMessage();
 }
 
 function dismissCardVisual(btn) {
-  disableCardButtons(btn);
+  disableCardButtons(btn, null, 'dismissed');
   btn.textContent = '已了解';
 }
 
 function confirmTask(btn) {
-  disableCardButtons(btn);
+  disableCardButtons(btn, null, 'confirmed_task');
   btn.textContent = '已确认';
   msgInput.value = 'Y';
   sendMessage();
 }
 
 function confirmAction(btn) {
-  disableCardButtons(btn);
+  disableCardButtons(btn, null, 'confirmed');
   btn.textContent = '已确认';
   msgInput.value = 'Y';
   sendMessage();
 }
 
-function disableCardButtons(btn) {
+function disableCardButtons(btn, selections, action) {
   const card = btn.closest('.card-clarify, .card-task, .card-confirm');
-  if (card) { card.style.pointerEvents = 'none'; card.classList.add('card-frozen'); }
+  if (!card) return;
+  card.style.pointerEvents = 'none';
+  card.classList.add('card-frozen');
+  const session = getActiveSession();
+  if (!session) return;
+  const botMsgs = session.messages.filter(m => m.role === 'bot');
+  const idx = botMsgs.length - 1;
+  if (idx < 0) return;
+  try {
+    const key = 'maia_frozen_' + session.id;
+    const frozen = JSON.parse(localStorage.getItem(key) || '{}');
+    frozen[idx] = { action: action || 'dismissed' };
+    if (selections) frozen[idx].sel = selections;
+    localStorage.setItem(key, JSON.stringify(frozen));
+  } catch (_) {}
+}
+
+function restoreFrozenButtonTexts(card, data) {
+  if (!data || !data.action) return;
+  const btns = card.querySelectorAll('button');
+  btns.forEach(b => b.disabled = true);
+  let target = null, text = '';
+  switch (data.action) {
+    case 'confirmed':         target = card.querySelector('.btn-danger'); text = '已确认'; break;
+    case 'cancelled':         target = card.querySelector('.btn-ghost');  text = '已取消'; break;
+    case 'dismissed':         target = card.querySelector('.btn-primary'); text = '已了解'; break;
+    case 'submitted':         target = card.querySelector('.btn-primary'); text = '已提交'; break;
+    case 'cancelled_clarify': target = card.querySelector('.btn-ghost');  text = '已取消'; break;
+    case 'confirmed_task':    target = card.querySelector('.btn-primary'); text = '已确认'; break;
+  }
+  if (target) target.textContent = text;
 }
 
 /* ── Scroll ── */
@@ -2064,7 +2174,11 @@ function parseValue(raw) {
 }
 function formatParam(v) {
   if (Array.isArray(v)) return v.map(x => typeof x === 'object' ? JSON.stringify(x) : String(x)).join(', ');
-  if (typeof v === 'object' && v !== null) return JSON.stringify(v);
+  if (typeof v === 'object' && v !== null) {
+    // indicator: {name, index} → "name (index)"
+    if ('name' in v && 'index' in v) return `${v.name} (${v.index})`;
+    return JSON.stringify(v);
+  }
   return String(v);
 }
 function timeAgo(iso) {
@@ -2075,6 +2189,44 @@ function timeAgo(iso) {
   const hrs = Math.floor(mins / 60);
   if (hrs < 24) return `${hrs}小时前`;
   return `${Math.floor(hrs / 24)}天前`;
+}
+function isFrozenMsg(botIdx) {
+  return !!getFrozenData(botIdx);
+}
+function getFrozenData(botIdx) {
+  const session = getActiveSession();
+  if (!session) return null;
+  try {
+    const key = 'maia_frozen_' + session.id;
+    const frozen = JSON.parse(localStorage.getItem(key) || '{}');
+    return frozen[botIdx] || null;
+  } catch (_) { return null; }
+}
+function restoreSelections(card, sel) {
+  sel.forEach(s => {
+    const sec = card.querySelector(`.prompt-section[data-prompt-id="${s.prompt_id}"]`);
+    if (!sec) return;
+    const val = typeof s.value === 'object' ? JSON.stringify(s.value) : String(s.value);
+    // Card mode
+    const opt = sec.querySelector(`.option-card[data-value="${escAttr(val)}"]`);
+    if (opt) { opt.classList.add('selected'); return; }
+    // Search mode single row
+    const row = sec.querySelector(`.selector-row[data-value="${escAttr(val)}"]`);
+    if (row) { row.classList.add('selected'); return; }
+    // Text input — value is a plain string that didn't match any option/row
+    const inp = sec.querySelector('.input-prompt');
+    if (inp) { inp.value = s.value; return; }
+    // Multi-select chips
+    if (Array.isArray(s.value)) {
+      s.value.forEach(v => {
+        const vs = typeof v === 'object' ? JSON.stringify(v) : String(v);
+        const chip = sec.querySelector(`.chip-select[data-value="${escAttr(vs)}"]`);
+        if (chip) chip.classList.add('selected');
+        const sr = sec.querySelector(`.selector-row[data-value="${escAttr(vs)}"]`);
+        if (sr) sr.classList.add('selected');
+      });
+    }
+  });
 }
 function reasonLabel(r) {
   const map = {
@@ -2094,6 +2246,85 @@ function statusLabel(s) {
 /* ── Recent selections (localStorage) ── */
 const RECENT_KEY = 'maia_recent';
 const RECENT_MAX = 5;
+
+/* ── Draft selections (localStorage) — survive page refresh ── */
+const DRAFT_KEY_PREFIX = 'maia_draft_';
+
+function getDraftSelections(sessionId) {
+  try {
+    const raw = localStorage.getItem(DRAFT_KEY_PREFIX + sessionId);
+    return raw ? JSON.parse(raw) : {};
+  } catch (_) { return {}; }
+}
+
+function saveDraftSelections(sessionId, botIdx, selections) {
+  try {
+    const key = DRAFT_KEY_PREFIX + sessionId;
+    const drafts = getDraftSelections(sessionId);
+    if (selections && selections.length) {
+      drafts[botIdx] = selections;
+    } else {
+      delete drafts[botIdx];
+    }
+    if (Object.keys(drafts).length === 0) {
+      localStorage.removeItem(key);
+    } else {
+      localStorage.setItem(key, JSON.stringify(drafts));
+    }
+  } catch (_) {}
+}
+
+function clearDraftSelections(sessionId) {
+  try {
+    localStorage.removeItem(DRAFT_KEY_PREFIX + sessionId);
+  } catch (_) {}
+}
+
+function saveDraftFromCard(el) {
+  const session = getActiveSession();
+  if (!session) return;
+  const botMsgs = session.messages.filter(m => m.role === 'bot');
+  let card;
+  let botIdx;
+  if (el) {
+    card = el.closest('.card-clarify');
+  }
+  if (card) {
+    botIdx = getCardBotIndex(card);
+  } else {
+    botIdx = botMsgs.length - 1;
+  }
+  if (botIdx < 0) return;
+  const replies = collectPromptReplies(card);
+  saveDraftSelections(session.id, botIdx, replies);
+}
+
+function restoreDraftSelections(sessionId) {
+  const drafts = getDraftSelections(sessionId);
+  if (!Object.keys(drafts).length) return;
+  const cards = document.querySelectorAll('.card-clarify');
+  cards.forEach(card => {
+    if (card.style.pointerEvents === 'none') return; // already frozen
+    // Map this card to its bot message index by counting preceding bot messages
+    const botIdx = getCardBotIndex(card);
+    if (botIdx == null) return;
+    const sel = drafts[botIdx];
+    if (sel && sel.length) {
+      restoreSelections(card, sel);
+    }
+  });
+}
+
+function getCardBotIndex(card) {
+  // Count bot messages before this card's DOM element
+  const allBotMsgs = chatArea.querySelectorAll('.msg.bot');
+  let idx = 0;
+  for (const el of allBotMsgs) {
+    if (el === card.closest('.msg.bot')) return idx;
+    idx++;
+  }
+  return null;
+}
 
 function getRecents(promptId) {
   try {

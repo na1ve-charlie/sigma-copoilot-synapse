@@ -27,7 +27,7 @@ from maia.selection.sets import SelectionSet
 from maia.tasks import ConfirmationService, PendingConfirmation, PendingTask, TaskSpec
 from maia.tasks.record_search import RecordSearchHandler
 from maia.tasks.router import TaskContext, TaskResult
-from maia.tasks.slot_value_resolution import MessageSlotResolver, SlotCandidate, SlotCandidateSet
+from maia.tasks.test_record_artifacts import TestRecordArtifactParser
 
 
 BACKUP_INTENT = "task.nvh.data_backup"
@@ -39,13 +39,9 @@ OPERATION_SLOT = "test_record_operation"
 PENDING_SELECTION_MARKER = f"__task__:{TEST_RECORD_MANAGEMENT_INTENT}"
 CONFIRM_VALUES = {"确认", "是", "好的", "执行", "confirm", "yes", "y"}
 CANCEL_VALUES = {"取消", "不用", "不要", "cancel", "no", "n"}
-DATA_TYPE_OPTIONS = (
-    ("color_map", "彩图", "colorMap"),
-    ("origin_data", "原始数据", "originData"),
-    ("result_data", "结果数据", "resultData"),
-)
+_ARTIFACT_PARSER = TestRecordArtifactParser()
+DATA_TYPE_OPTIONS = _ARTIFACT_PARSER.options
 DATA_EXPORT_TYPES = {"delete": 1, "backup": 2, "backup_delete": 3}
-_SLOT_RESOLVER = MessageSlotResolver()
 
 
 class TestRecordManager(Protocol):
@@ -432,28 +428,11 @@ def params_from_prompt_replies(replies) -> dict[str, object]:
 
 
 def data_types_from_message(message: str) -> tuple[str, ...]:
-    return _SLOT_RESOLVER.resolve_message(message, _data_type_candidate_set()).matched
+    return _ARTIFACT_PARSER.parse_message(message)
 
 
 def data_types_param(value: object) -> tuple[str, ...]:
-    return _SLOT_RESOLVER.resolve_value(value, _data_type_candidate_set()).matched
-
-
-def _data_type_candidate_set() -> SlotCandidateSet:
-    aliases = {
-        "color_map": ("声彩图", "colormap", "color map"),
-        "origin_data": ("源数据", "raw data", "origin data"),
-        "result_data": ("result data",),
-    }
-    return SlotCandidateSet(
-        slot=DATA_TYPES_SLOT,
-        candidates=tuple(
-            SlotCandidate(value=value, label=label, aliases=(backend_key, *aliases.get(value, ())))
-            for value, label, backend_key in DATA_TYPE_OPTIONS
-        ),
-        multi=True,
-        all_aliases=("全部数据", "所有数据", "全量数据", "all data"),
-    )
+    return _ARTIFACT_PARSER.parse_value(value)
 
 
 def file_name_from_message(message: str) -> str | None:
