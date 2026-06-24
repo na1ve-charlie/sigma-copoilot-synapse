@@ -8,7 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_serializer, model_valid
 
 
 RiskLevel: TypeAlias = Literal["low", "medium", "high"]
-TaskStatus: TypeAlias = Literal["ready", "needs_confirmation", "blocked"]
+TaskStatus: TypeAlias = Literal["ready", "submitted", "needs_confirmation", "blocked"]
 ClarifyReason: TypeAlias = Literal[
     "low_confidence",
     "ambiguous_intent",
@@ -195,8 +195,16 @@ class TaskPlan(PlanWithDataset):
     requires_confirmation: bool
     params: dict[str, Any] = Field(default_factory=dict)
     message: str
+    data: dict[str, Any] = Field(default_factory=dict)
     reason: str | None = None
     slot_state_diff: SlotStateDiff = Field(default_factory=SlotStateDiff)
+
+    @model_serializer(mode="wrap")
+    def _serialize(self, handler):
+        payload = handler(self)
+        if not payload.get("data"):
+            payload.pop("data", None)
+        return payload
 
 
 TurnPlan: TypeAlias = (

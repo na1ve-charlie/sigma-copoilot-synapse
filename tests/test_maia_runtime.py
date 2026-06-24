@@ -614,7 +614,7 @@ def test_runtime_latest_n_change_recomputes_product_candidates_from_latest_scope
     assert _predicate_values(draft.expression, "type_system_in") == ()
 
 
-def test_runtime_limits_missing_product_type_candidates_to_recent_top_five_plus_all() -> None:
+def test_runtime_returns_all_missing_product_type_candidates_within_record_scope() -> None:
     from maia.runtime import create_maia_runtime
 
     records = tuple(
@@ -654,6 +654,7 @@ def test_runtime_limits_missing_product_type_candidates_to_recent_top_five_plus_
         "P4",
         "P3",
         "P2",
+        "P1",
         "__ALL_PRODUCTS__",
     ]
 
@@ -666,6 +667,9 @@ def test_runtime_invalid_product_type_candidates_follow_filtered_test_time_order
         _record("r-5", day=5, product_type="B", config_version="1", system_no="SYS-B", summary_result="FAIL"),
         _record("r-3", day=3, product_type="A", config_version="1", system_no="SYS-A", summary_result="FAIL"),
         _record("r-4", day=4, product_type="B", config_version="1", system_no="SYS-B", summary_result="FAIL"),
+        _record("r-6", day=6, product_type="D", config_version="1", system_no="SYS-D", summary_result="FAIL"),
+        _record("r-1", day=1, product_type="E", config_version="1", system_no="SYS-E", summary_result="FAIL"),
+        _record("r-7", day=7, product_type="F", config_version="1", system_no="SYS-F", summary_result="FAIL"),
     )
     handler = create_maia_runtime(
         recognizer=_SequenceRecognizer(
@@ -691,9 +695,12 @@ def test_runtime_invalid_product_type_candidates_follow_filtered_test_time_order
     assert response.plan.invalid_slots == ["product_type"]
     assert "按测试时间倒序" in response.plan.message
     assert [candidate.value for candidate in response.plan.prompts[0].candidates] == [
+        "F",
+        "D",
         "B",
         "A",
         "C",
+        "E",
         "__ALL_PRODUCTS__",
     ]
 
@@ -790,7 +797,7 @@ def test_runtime_applies_product_type_reply_from_pending_prompt() -> None:
     assert second.plan.dataset.record_ids == ["r-2"]
 
 
-def test_runtime_applies_product_type_reply_outside_top_five_candidates() -> None:
+def test_runtime_applies_product_type_reply_from_full_candidate_list() -> None:
     from maia.runtime import create_maia_runtime
 
     records = tuple(
@@ -849,6 +856,7 @@ def test_runtime_applies_product_type_reply_outside_top_five_candidates() -> Non
         "P4",
         "P3",
         "P2",
+        "P1",
         "__ALL_PRODUCTS__",
     ]
     assert second.plan.kind == "task"
@@ -1258,7 +1266,7 @@ class _RecordClient:
         self.calls.append((page, rows))
         filtered = tuple(record for record in self._records if _matches(record, expression))
         page_number = page or 1
-        row_count = rows or 500
+        row_count = rows or 5000
         start = (page_number - 1) * row_count
         end = start + row_count
         return TestRecordPage(total=len(filtered), records=filtered[start:end])

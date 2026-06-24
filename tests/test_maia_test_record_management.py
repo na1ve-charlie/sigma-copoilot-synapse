@@ -47,6 +47,7 @@ def test_test_record_management_backup_clarifies_slots_then_confirms_and_submits
     assert third.plan.kind == "confirm"
     assert third.plan.reason == "medium_risk_operation"
     assert fourth.plan.kind == "task"
+    assert fourth.plan.status == "submitted"
     assert manager.requests[0].to_body() == {
         "resultIdList": [46704, 46703],
         "colorMap": True,

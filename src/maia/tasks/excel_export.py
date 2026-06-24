@@ -294,7 +294,7 @@ class ExcelExportHandler:
                 token=confirmation.token,
                 selection_hash=confirmation.task.selection_hash,
             )
-            await self._exporter.export(
+            export_result = await self._exporter.export(
                 request_from_task(task),
                 workspace_context=context.request.workspace_context,
             )
@@ -304,7 +304,12 @@ class ExcelExportHandler:
                 state=self._task_store.cancel_confirmation(context.state),
             )
         return TaskResult(
-            plan=self._policy.task_plan(task, "Excel export submitted."),
+            plan=self._policy.task_plan(
+                task,
+                "Excel export submitted.",
+                status="submitted",
+                data=export_result if isinstance(export_result, dict) else {},
+            ),
             state=self._task_store.submit(context.state, task.task_id),
         )
 

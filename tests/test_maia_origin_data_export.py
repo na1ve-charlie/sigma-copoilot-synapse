@@ -56,13 +56,51 @@ def test_origin_data_export_clarifies_format_then_confirms_and_exports() -> None
     assert second.plan.kind == "confirm"
     assert second.plan.reason == "medium_risk_operation"
     assert third.plan.kind == "task"
-    assert third.plan.status == "ready"
+    assert third.plan.status == "submitted"
     assert exporter.requests[0].to_body() == {
         "idList": [29181, 29182],
         "path": "D:\\exportOriginFile",
         "dataExportType": 1,
         "systemNo": "SYS-1",
     }
+
+
+def test_origin_data_export_prompt_cancel_clears_pending_task() -> None:
+    from maia.runtime import ConversationStateRepository, create_maia_runtime
+
+    records = (_record("29181", product_type="A", system_no="SYS-1"),)
+    state_repository = ConversationStateRepository()
+    exporter = _OriginExporter()
+    handler = create_maia_runtime(
+        recognizer=_SequenceRecognizer(
+            [
+                _report(
+                    actions=["task.nvh.origin_data_export"],
+                    operations=[
+                        {"action": "replace", "entity_type": "product_type", "target": "A"},
+                    ],
+                )
+            ]
+        ),
+        record_client=_RecordClient(records),
+        product_catalog=_ProductCatalog(_configs_from_records(records)),
+        origin_export_client=exporter,
+        state_repository=state_repository,
+        source_version="sigma-fixture-v1",
+    )
+
+    first = asyncio.run(handler.handle_turn(_request("s1", "export A origin data")))
+    cancelled = asyncio.run(handler.handle_turn(_request("s1", "取消")))
+    state = state_repository.load("s1")
+
+    assert first.plan.kind == "clarify"
+    assert first.plan.pending_task == "task.nvh.origin_data_export"
+    assert cancelled.plan.kind == "reply"
+    assert cancelled.plan.message == "Pending task cancelled."
+    assert state.pending_selection_draft is None
+    assert state.pending_task is None
+    assert state.pending_confirmation is None
+    assert exporter.requests == []
 
 
 def test_origin_data_export_clarifies_system_no_after_format_reply() -> None:

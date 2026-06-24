@@ -92,7 +92,7 @@ class ExcelExportClient:
         base_url: str,
         token: str | None = None,
         token_provider: SigmaTokenProvider | None = None,
-        timeout: float = 5.0,
+        timeout: float = 3600.0,
         endpoint_path: str = EXCEL_EXPORT_PATH,
         transport: ExcelExportTransport | None = None,
     ) -> None:

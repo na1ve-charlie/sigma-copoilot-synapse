@@ -259,7 +259,11 @@ class OriginDataExportHandler:
                 state=self._task_store.cancel_confirmation(context.state),
             )
         return TaskResult(
-            plan=self._policy.task_plan(task, "Origin data export submitted."),
+            plan=self._policy.task_plan(
+                task,
+                "Origin data export submitted.",
+                status="submitted",
+            ),
             state=self._task_store.submit(context.state, task.task_id),
         )
 

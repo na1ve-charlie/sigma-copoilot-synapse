@@ -109,6 +109,14 @@ class ConversationTaskStateStore:
     def clear_pending(self, state: ConversationSelectionState) -> ConversationSelectionState:
         return self.save_pending(state, None)
 
+    def cancel_pending(self, state: ConversationSelectionState) -> ConversationSelectionState:
+        return _update_state(
+            state,
+            pending_selection_draft=None,
+            pending_task=None,
+            pending_confirmation=None,
+        )
+
     def rebase(
         self,
         state: ConversationSelectionState,

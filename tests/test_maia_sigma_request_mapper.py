@@ -43,7 +43,7 @@ def test_request_mapper_projects_dataset_scope_page_defaults_and_supported_filte
     assert request.to_http_params() == {
         "lang": "zh",
         "page": 1,
-        "rows": 500,
+        "rows": 5000,
         "archive": "false",
         "keepLast": "false",
         "onlyRepeatSerial": "false",
@@ -158,7 +158,7 @@ def test_request_mapper_allows_missing_dataset_scope_and_requires_positive_pagin
     assert request.to_http_params() == {
         "lang": "zh",
         "page": 1,
-        "rows": 500,
+        "rows": 5000,
         "archive": "false",
         "keepLast": "false",
         "onlyRepeatSerial": "false",
@@ -277,7 +277,7 @@ def test_request_mapper_supports_single_sided_tested_at_between() -> None:
     assert request.to_http_params() == {
         "lang": "zh",
         "page": 1,
-        "rows": 500,
+        "rows": 5000,
         "archive": "false",
         "keepLast": "false",
         "onlyRepeatSerial": "false",

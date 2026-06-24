@@ -34,7 +34,7 @@ class SelectionQueryCompiler:
         self,
         record_client: SelectionRecordClient,
         *,
-        page_size: int = 500,
+        page_size: int = 5000,
     ) -> None:
         if page_size < 1:
             raise ValueError("page_size must be positive")

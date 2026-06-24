@@ -68,7 +68,7 @@ class LegacyRecordRequestParams(BaseModel):
     data_group_id: str | None = Field(default=None, serialization_alias="dataGroupId")
     lang: str = "zh"
     page: int = 1
-    rows: int = 500
+    rows: int = 5000
     archive: bool = False
     keep_last: bool = Field(default=False, serialization_alias="keepLast")
     only_repeat_serial: bool = Field(default=False, serialization_alias="onlyRepeatSerial")
@@ -143,7 +143,7 @@ class LegacyRecordRequestParams(BaseModel):
 
 
 class LegacyRecordRequestMapper:
-    def __init__(self, *, default_page: int = 1, default_rows: int = 500) -> None:
+    def __init__(self, *, default_page: int = 1, default_rows: int = 5000) -> None:
         self._default_page = default_page
         self._default_rows = default_rows
 

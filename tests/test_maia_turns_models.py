@@ -111,6 +111,7 @@ def test_turn_plan_dumps_include_public_dataset_shape() -> None:
     ]
     assert all(item["dataset"] == {} for item in dumped)
     assert dumped[2]["intent"] == "task.nvh.data_observation.view_indicator_result"
+    assert "data" not in dumped[2]
 
 
 def test_turn_response_model_validates_g06_public_samples() -> None:
@@ -140,3 +141,20 @@ def test_clarify_plan_allows_text_slot_prompt_without_candidates() -> None:
     )
 
     assert plan.prompts[0].candidates == []
+
+
+def test_task_plan_accepts_submitted_status() -> None:
+    plan = TaskPlan(
+        status="submitted",
+        name="task.nvh.excel_export",
+        intent="task.nvh.excel_export",
+        title="Excel export",
+        risk_level="medium",
+        requires_confirmation=True,
+        message="Excel export submitted.",
+        data={"code": 200, "data": ["http://example.com/report.xlsx"]},
+    )
+
+    assert plan.status == "submitted"
+    assert plan.data["code"] == 200
+    assert plan.model_dump(mode="json")["data"]["code"] == 200

@@ -496,6 +496,194 @@ input, textarea { font-family: inherit; color: inherit; }
 .option-card.selected .option-card-check { opacity: 1; transform: scale(1); }
 .option-card-check svg { width: 10px; height: 10px; }
 
+/* ============================================================
+   SEARCHABLE SELECTOR (for prompts with > 6 candidates)
+   ============================================================ */
+.selector-search-wrap {
+  position: relative;
+  margin-bottom: 10px;
+}
+.selector-search {
+  width: 100%;
+  padding: 9px 36px 9px 14px;
+  background: var(--bg-root);
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  color: var(--text-primary);
+  outline: none;
+  transition: border-color 200ms var(--ease-out), box-shadow 200ms var(--ease-out);
+}
+.selector-search:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(88,101,242,0.10);
+}
+.selector-search::placeholder { color: var(--text-tertiary); }
+.selector-search-icon {
+  position: absolute;
+  right: 10px; top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-tertiary);
+  pointer-events: none;
+  width: 16px; height: 16px;
+}
+.selector-categories {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+.selector-cat-chip {
+  padding: 4px 12px;
+  border-radius: var(--radius-pill);
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  background: var(--bg-chip);
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all 150ms var(--ease-out);
+  letter-spacing: 0.01em;
+}
+.selector-cat-chip:hover { background: var(--bg-chip-hover); color: var(--accent); }
+.selector-cat-chip.active {
+  background: var(--accent);
+  color: white;
+  border-color: var(--accent);
+}
+.selector-list-wrap {
+  position: relative;
+  max-height: 280px;
+  overflow-y: auto;
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-sm);
+  background: var(--bg-card);
+}
+.selector-list-wrap::after {
+  content: '';
+  position: sticky;
+  bottom: 0; left: 0; right: 0;
+  height: 32px;
+  background: linear-gradient(transparent, var(--bg-card) 80%);
+  pointer-events: none;
+}
+.selector-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 14px;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--text-primary);
+  transition: background 120ms var(--ease-out);
+  border-bottom: 1px solid rgba(0,0,0,0.03);
+  min-height: 40px;
+  position: relative;
+}
+.selector-row:last-child { border-bottom: none; }
+.selector-row:hover { background: rgba(88,101,242,0.04); }
+.selector-row.selected {
+  background: rgba(88,101,242,0.06);
+}
+.selector-row.selected::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 2px;
+  background: var(--accent);
+  border-radius: 0 2px 2px 0;
+}
+.selector-row-dot {
+  width: 16px; height: 16px;
+  border-radius: 50%;
+  border: 1.5px solid var(--border-hover);
+  flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  transition: border-color 150ms, background 150ms;
+}
+.selector-row.selected .selector-row-dot {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+.selector-row.selected .selector-row-dot::after {
+  content: '';
+  width: 4px; height: 4px;
+  border-radius: 50%;
+  background: white;
+}
+.selector-row-label {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.selector-row-cat {
+  font-size: 10px;
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+  background: var(--bg-chip);
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+}
+.selector-row-check {
+  display: none;
+  color: var(--accent);
+  font-weight: 700;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+.selector-row.selected .selector-row-check { display: block; }
+.selector-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  font-size: 11px;
+  color: var(--text-tertiary);
+  border-top: 1px solid var(--border-card);
+}
+.selector-clear {
+  font-size: 11px;
+  color: var(--accent);
+  cursor: pointer;
+  background: none;
+  border: none;
+  font-weight: 500;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: background 150ms;
+}
+.selector-clear:hover { background: rgba(88,101,242,0.06); }
+.match-highlight {
+  color: var(--accent);
+  font-weight: 600;
+  background: rgba(88,101,242,0.10);
+  border-radius: 2px;
+  padding: 0 1px;
+}
+.selector-no-results {
+  padding: 24px 14px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-tertiary);
+}
+.recent-divider {
+  padding: 8px 14px 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  text-align: center;
+}
+.selector-row.recent {
+  background: rgba(88,101,242,0.03);
+}
+.selector-row.recent:hover {
+  background: rgba(88,101,242,0.07);
+}
+
 /* Multi-Select Chips */
 .chip-group { display: flex; flex-wrap: wrap; gap: 8px; }
 .chip-select {
@@ -533,7 +721,7 @@ input, textarea { font-family: inherit; color: inherit; }
 /* Submit button for clarify */
 .clarify-actions {
   margin-top: 18px;
-  display: flex; justify-content: flex-end;
+  display: flex; justify-content: flex-end; gap: 8px;
 }
 
 /* ============================================================
@@ -547,6 +735,16 @@ input, textarea { font-family: inherit; color: inherit; }
   overflow: hidden;
   box-shadow: var(--shadow-card);
   animation: fadeInUp 350ms var(--ease-out) both;
+  max-width: 1260px;
+}
+.msg:has(.card-task) { max-width: 1260px; }
+.msg:has(.card-confirm) { max-width: 1260px; }
+.card-task.risk-high {
+  border-left: 3px solid var(--danger);
+  background: rgba(239,68,68,0.03);
+}
+.card-task.risk-high .card-task-header {
+  background: rgba(239,68,68,0.04);
 }
 .card-task-header {
   padding: 16px 20px;
@@ -560,10 +758,34 @@ input, textarea { font-family: inherit; color: inherit; }
   width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
 }
 .status-dot.ready   { background: var(--success); animation: breathe 2s ease-in-out infinite; }
+.status-dot.submitted { background: var(--success); }
 .status-dot.blocked { background: var(--danger); }
 .status-dot.needs_confirmation { background: var(--warning); animation: pulse 1.5s ease-in-out infinite; }
 .card-task-divider { height: 1px; background: var(--border-card); margin: 0 20px; }
 .card-task-body { padding: 16px 20px; }
+.task-dataset-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+  padding: 8px 12px;
+  background: rgba(88,101,242,0.04);
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+}
+.task-dataset-name {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.task-dataset-sep {
+  width: 1px;
+  height: 12px;
+  background: var(--border-hover);
+}
+.task-dataset-count {
+  font-weight: 500;
+  color: var(--accent);
+}
 .card-task-params {
   display: grid;
   grid-template-columns: 110px 1fr;
@@ -572,6 +794,41 @@ input, textarea { font-family: inherit; color: inherit; }
 }
 .param-key   { color: var(--text-tertiary); font-family: var(--font-mono); font-size: 12px; }
 .param-value { color: var(--text-primary); word-break: break-word; }
+.task-downloads {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(148, 163, 184, 0.16);
+}
+.task-downloads-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.task-downloads-list {
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.task-download-link {
+  display: block;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: rgba(34,197,94,0.08);
+  color: #166534;
+  text-decoration: none;
+  font-size: 13px;
+  word-break: break-all;
+  transition: background 150ms ease, transform 150ms ease;
+}
+.task-download-link:hover {
+  background: rgba(34,197,94,0.14);
+  transform: translateY(-1px);
+}
 .card-task-footer {
   padding: 12px 20px;
   display: flex;
@@ -584,13 +841,13 @@ input, textarea { font-family: inherit; color: inherit; }
    CONFIRM CARD
    ============================================================ */
 .card-confirm {
-  background: var(--bg-card);
+  background: rgba(239,68,68,0.03);
   border: 1px solid var(--border-card);
-  border-left: 3px solid var(--warning);
+  border-left: 3px solid var(--danger);
   border-radius: var(--radius-lg);
   width: 100%;
   overflow: hidden;
-  box-shadow: var(--shadow-card);
+  box-shadow: var(--shadow-card), 0 0 0 1px rgba(239,68,68,0.08);
   animation: fadeInUp 350ms var(--ease-out) both;
 }
 .card-confirm-header {
@@ -598,15 +855,71 @@ input, textarea { font-family: inherit; color: inherit; }
   display: flex;
   align-items: flex-start;
   gap: 10px;
+  background: rgba(239,68,68,0.04);
+  border-bottom: 1px solid rgba(239,68,68,0.08);
 }
 .card-confirm-icon { font-size: 18px; flex-shrink: 0; margin-top: 1px; }
-.card-confirm-reason { font-size: 13px; color: var(--warning); font-weight: 600; }
+.card-confirm-reason { font-size: 13px; color: var(--danger); font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em; }
 .card-confirm-msg { font-size: 14px; color: var(--text-primary); margin-top: 4px; }
+.card-confirm-summary {
+  padding: 0 20px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.sum-row {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  font-size: 13px;
+}
+.sum-key {
+  color: var(--text-tertiary);
+  min-width: 56px;
+  font-size: 12px;
+}
+.sum-val {
+  color: var(--text-primary);
+  font-weight: 500;
+}
+.card-confirm-detail {
+  margin: 0 20px 8px;
+  padding: 10px 14px;
+  background: rgba(239,68,68,0.03);
+  border: 1px solid rgba(239,68,68,0.12);
+  border-radius: var(--radius-sm);
+  max-height: 180px;
+  overflow-y: auto;
+}
+.card-confirm-detail pre {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  white-space: pre-wrap;
+  font-family: var(--font-mono);
+  margin: 0;
+}
+.card-confirm-toggle {
+  padding: 4px 20px 12px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: color 150ms;
+  user-select: none;
+}
+.card-confirm-toggle:hover { color: var(--accent); }
+.toggle-arrow {
+  font-size: 10px;
+  transition: transform 150ms;
+}
 .card-confirm-payload { padding: 0 20px 16px; }
 .card-confirm-footer {
   padding: 12px 20px;
   display: flex; align-items: center; justify-content: flex-end; gap: 10px;
-  border-top: 1px solid var(--border-card);
+  border-top: 1px solid rgba(239,68,68,0.10);
+  background: rgba(239,68,68,0.02);
 }
 
 /* ── Shared card buttons ── */
@@ -670,6 +983,7 @@ input, textarea { font-family: inherit; color: inherit; }
   font-size: 11px; font-weight: 600;
 }
 .status-badge.ready   { background: rgba(34,197,94,0.10); color: #16A34A; }
+.status-badge.submitted { background: rgba(34,197,94,0.10); color: #16A34A; }
 .status-badge.needs_confirmation { background: rgba(245,158,11,0.10); color: #D97706; }
 .status-badge.blocked { background: rgba(239,68,68,0.10); color: #DC2626; }
 
@@ -689,6 +1003,34 @@ input, textarea { font-family: inherit; color: inherit; }
 }
 .typing-indicator span:nth-child(2) { animation-delay: 0.15s; }
 .typing-indicator span:nth-child(3) { animation-delay: 0.3s; }
+
+/* ── Thinking indicator (Claude Code style) ── */
+.thinking-indicator {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 0;
+  align-self: flex-start;
+  animation: fadeInUp 250ms var(--ease-out) both;
+}
+.thinking-icon {
+  width: 20px; height: 20px;
+  flex-shrink: 0;
+  animation: thinkSpin 2.4s linear infinite;
+}
+.thinking-icon-ring {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-dasharray: 50 100;
+  animation: thinkDash 1.6s ease-in-out infinite;
+}
+.thinking-text {
+  font-size: 13px;
+  color: var(--text-secondary);
+  transition: opacity 300ms var(--ease-out);
+}
 
 /* ============================================================
    TOAST
@@ -734,6 +1076,15 @@ input, textarea { font-family: inherit; color: inherit; }
 @keyframes toastIn {
   from { opacity: 0; transform: translateX(40px); }
   to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes thinkSpin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+@keyframes thinkDash {
+  0%   { stroke-dashoffset: 0; }
+  50%  { stroke-dashoffset: 60; }
+  100% { stroke-dashoffset: 0; }
 }
 </style>
 </head>
@@ -817,7 +1168,8 @@ const toastCont  = $('#toast-container');
 
 /* ── State ── */
 let state = loadState();
-let typingEl = null;
+let thinkEl = null;
+let thinkTimer = null;
 
 /* ============================================================
    STORAGE
@@ -915,7 +1267,8 @@ function renderSidebar() {
 /* ============================================================
    MESSAGE SENDING
    ============================================================ */
-async function sendMessage() {
+async function sendMessage(opts) {
+  const options = opts || {};
   const text = msgInput.value.trim();
   if (!text) return;
 
@@ -942,11 +1295,12 @@ async function sendMessage() {
   btnSend.disabled = true;
 
   // Typing indicator
-  showTyping();
+  showThinking();
 
   // Build prompt_replies only if last bot message was a clarify plan
   const lastBot = [...session.messages].reverse().find(m => m.role === 'bot');
-  const needsReplies = lastBot && lastBot.plan && lastBot.plan.kind === 'clarify' && lastBot.plan.prompts && lastBot.plan.prompts.length > 0;
+  const includePromptReplies = options.includePromptReplies !== false;
+  const needsReplies = includePromptReplies && lastBot && lastBot.plan && lastBot.plan.kind === 'clarify' && lastBot.plan.prompts && lastBot.plan.prompts.length > 0;
   const promptReplies = needsReplies ? collectPromptReplies() : [];
 
   try {
@@ -962,7 +1316,7 @@ async function sendMessage() {
       body: JSON.stringify(body)
     });
 
-    hideTyping();
+    hideThinking();
 
     if (!resp.ok) {
       const body = await resp.json().catch(() => ({}));
@@ -982,7 +1336,7 @@ async function sendMessage() {
     }
 
   } catch (err) {
-    hideTyping();
+    hideThinking();
     toast(err.message || '请求失败', 'error');
   }
 
@@ -998,11 +1352,15 @@ function collectPromptReplies() {
     const id = el.dataset.promptId;
     const type = el.dataset.inputType;
     if (type === 'single_select') {
-      const sel = el.querySelector('.option-card.selected');
+      // Try card mode first, then search mode
+      let sel = el.querySelector('.option-card.selected');
+      if (sel) { replies.push({ prompt_id: id, value: parseValue(sel.dataset.value) }); return; }
+      sel = el.querySelector('.selector-row.selected');
       if (sel) replies.push({ prompt_id: id, value: parseValue(sel.dataset.value) });
     } else if (type === 'multi_select') {
       const vals = [];
       el.querySelectorAll('.chip-select.selected').forEach(c => vals.push(parseValue(c.dataset.value)));
+      el.querySelectorAll('.selector-row.selected').forEach(r => vals.push(parseValue(r.dataset.value)));
       if (vals.length) replies.push({ prompt_id: id, value: vals });
     } else if (type === 'text') {
       const inp = el.querySelector('.input-prompt');
@@ -1013,18 +1371,55 @@ function collectPromptReplies() {
 }
 
 /* ============================================================
-   TYPING INDICATOR
+   THINKING INDICATOR
    ============================================================ */
-function showTyping() {
-  hideTyping();
-  typingEl = document.createElement('div');
-  typingEl.className = 'typing-indicator';
-  typingEl.innerHTML = '<span></span><span></span><span></span>';
-  chatArea.appendChild(typingEl);
-  scrollDown();
+const THINK_VERBS = [
+  'swimming', 'floating', 'drifting', 'glowing', 'shimmering',
+  'brewing', 'stirring', 'blending', 'whisking', 'simmering',
+  'humming', 'whistling', 'strumming', 'tuning', 'echoing',
+  'doodling', 'sketching', 'tracing', 'shading', 'painting',
+  'wandering', 'roaming', 'strolling', 'sauntering', 'meandering',
+  'pondering', 'musing', 'wondering', 'reflecting', 'daydreaming',
+  'twirling', 'spinning', 'swirling', 'spiraling', 'orbiting',
+  'bubbling', 'fizzing', 'sparkling', 'glimmering', 'twinkling'
+];
+let _verbIdx = -1;
+
+function pickVerb() {
+  _verbIdx = (_verbIdx + 1 + Math.floor(Math.random() * 3) + 1) % THINK_VERBS.length;
+  return THINK_VERBS[_verbIdx];
 }
-function hideTyping() {
-  if (typingEl) { typingEl.remove(); typingEl = null; }
+
+function showThinking() {
+  hideThinking();
+  thinkEl = document.createElement('div');
+  thinkEl.className = 'thinking-indicator';
+  thinkEl.innerHTML = `
+    <svg class="thinking-icon" viewBox="0 0 20 20">
+      <circle class="thinking-icon-ring" cx="10" cy="10" r="8"/>
+    </svg>
+    <span class="thinking-text">${pickVerb()}...</span>
+  `;
+  chatArea.appendChild(thinkEl);
+  scrollDown();
+  thinkTimer = setInterval(() => {
+    if (!thinkEl) return;
+    const textEl = thinkEl.querySelector('.thinking-text');
+    if (textEl) {
+      textEl.style.opacity = '0';
+      setTimeout(() => {
+        if (!thinkEl) return;
+        textEl.textContent = pickVerb() + '...';
+        textEl.style.opacity = '1';
+      }, 300);
+    }
+  }, 1800 + Math.random() * 700);
+}
+
+function hideThinking() {
+  if (thinkTimer) { clearInterval(thinkTimer); thinkTimer = null; }
+  if (thinkEl && thinkEl.parentNode) { thinkEl.remove(); }
+  thinkEl = null;
 }
 
 /* ============================================================
@@ -1080,8 +1475,11 @@ function renderReply(el, plan) {
 
 /* ── Clarify ── */
 function renderClarify(el, plan) {
-  // Clear any stale selections from previous clarify cards
-  document.querySelectorAll('.card-clarify .option-card.selected, .card-clarify .chip-select.selected').forEach(c => c.classList.remove('selected'));
+  // Clear selections only from non-frozen (still interactive) cards
+  document.querySelectorAll('.card-clarify').forEach(card => {
+    if (card.style.pointerEvents === 'none') return;
+    card.querySelectorAll('.option-card.selected, .chip-select.selected').forEach(c => c.classList.remove('selected'));
+  });
   el.className = 'msg bot';
   const promptsHtml = (plan.prompts || []).map(p => buildPromptCard(p)).join('');
   const pendingHtml = plan.pending_task ? `<div style="margin-top:8px;font-size:12px;color:var(--text-tertiary)">待执行: ${escHtml(plan.pending_task)}</div>` : '';
@@ -1099,18 +1497,59 @@ function renderClarify(el, plan) {
       </div>
       ${promptsHtml}
       <div class="clarify-actions">
+        <button class="btn-ghost" onclick="cancelClarify(this)">取消</button>
         <button class="btn-primary" onclick="submitClarify(this)">确认选择</button>
       </div>
     </div>
   `;
+  initSearchableSections(el);
+}
+
+function initSearchableSections(el) {
+  el.querySelectorAll('.searchable-section').forEach(sec => {
+    const promptId = sec.dataset.promptId;
+    const listWrap = sec.querySelector('.selector-list-wrap');
+    const countEl = sec.querySelector('#sel-count-' + promptId);
+    if (countEl && listWrap) {
+      const total = listWrap.querySelectorAll('.selector-row').length;
+      countEl.textContent = `共 ${total} 个候选`;
+      if (total === 0 && !listWrap.querySelector('.selector-no-results')) {
+        const nr = document.createElement('div');
+        nr.className = 'selector-no-results';
+        nr.textContent = '无候选数据，请检查后端返回';
+        listWrap.appendChild(nr);
+      }
+    }
+    const searchInput = sec.querySelector('.selector-search');
+    if (searchInput) {
+      setTimeout(() => {
+        const allSearchable = el.querySelectorAll('.searchable-section');
+        if (allSearchable.length === 1) searchInput.focus();
+      }, 150);
+    }
+  });
 }
 
 function buildPromptCard(prompt) {
+  const candidates = prompt.candidates || [];
+  const searchThreshold = prompt.input_type === 'single_select' ? 7 : 13;
+
+  // product_type always uses search-first selector
+  const forceSearch = prompt.id === 'product_type';
+
+  if (!forceSearch && candidates.length < searchThreshold) {
+    return buildCardBody(prompt, candidates);
+  }
+  return buildSearchBody(prompt, candidates);
+}
+
+/* ── Classic card body (≤ 6 single_select, ≤ 12 multi_select) ── */
+function buildCardBody(prompt, candidates) {
   let body = '';
   if (prompt.input_type === 'single_select') {
     body = `
       <div class="option-cards">
-        ${(prompt.candidates || []).map(c => `
+        ${candidates.map(c => `
           <div class="option-card${c.disabled ? ' disabled' : ''}" data-value="${jsonAttr(c.value)}" onclick="selectOption(this)" ${c.disabled ? 'aria-disabled="true"' : ''}>
             <div class="option-card-value">${escHtml(c.label)}</div>
             ${c.description ? `<div class="option-card-desc">${escHtml(c.description)}</div>` : ''}
@@ -1121,7 +1560,7 @@ function buildPromptCard(prompt) {
   } else if (prompt.input_type === 'multi_select') {
     body = `
       <div class="chip-group">
-        ${(prompt.candidates || []).map(c => `
+        ${candidates.map(c => `
           <button class="chip-select" data-value="${jsonAttr(c.value)}" onclick="toggleChip(this)">${escHtml(c.label)}</button>
         `).join('')}
       </div>`;
@@ -1135,31 +1574,260 @@ function buildPromptCard(prompt) {
     </div>`;
 }
 
+/* ── Search-first selector body (> 6 single_select, > 12 multi_select) ── */
+function buildSearchBody(prompt, candidates) {
+  const categories = extractCategories(candidates);
+  const showCats = categories.length >= 2;
+  const promptId = escAttr(prompt.id);
+  const inputType = escAttr(prompt.input_type);
+  const isMulti = prompt.input_type === 'multi_select';
+
+  const catHtml = showCats ? `
+    <div class="selector-categories">
+      ${categories.map((cat, i) => `
+        <span class="selector-cat-chip" onclick="toggleCatChip(this, '${promptId}')">${escHtml(cat)}</span>
+      `).join('')}
+    </div>` : '';
+
+  const rows = buildSearchRows(candidates, '', isMulti, promptId, []);
+
+  return `
+    <div class="prompt-section searchable-section" data-prompt-id="${promptId}" data-input-type="${inputType}">
+      <div class="prompt-label">${escHtml(prompt.label)} ${prompt.required ? '<span class="prompt-required">*必填</span>' : ''}</div>
+      <div class="selector-search-wrap">
+        <input class="selector-search" type="text" placeholder="搜索..." oninput="filterSelector(this, '${promptId}')" autocomplete="off">
+        <svg class="selector-search-icon" viewBox="0 0 16 16" fill="none"><circle cx="7" cy="7" r="5.5" stroke="currentColor" stroke-width="1.3"/><path d="M11 11l3.5 3.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+      </div>
+      ${catHtml}
+      <div class="selector-list-wrap" id="sel-list-${promptId}">
+        ${rows}
+      </div>
+      <div class="selector-footer" id="sel-footer-${promptId}">
+        <span id="sel-count-${promptId}"></span>
+      </div>
+    </div>`;
+}
+
+/* ── Category extraction from labels ── */
+function extractCategories(candidates) {
+  const cats = new Set();
+  candidates.forEach(c => {
+    const m = String(c.label).match(/（(.+?)）$/);
+    const cat = m ? m[1] : '其他';
+    cats.add(cat);
+  });
+  return Array.from(cats);
+}
+
+/* ── Build search rows HTML ── */
+function buildSearchRows(candidates, query, isMulti, promptId, activeCatsOverride) {
+  const activeCats = activeCatsOverride !== undefined ? activeCatsOverride : getActiveCategories(promptId);
+  let visible = candidates;
+  if (activeCats.length) {
+    visible = candidates.filter(c => {
+      const m = String(c.label).match(/（(.+?)）$/);
+      const cat = m ? m[1] : '其他';
+      return activeCats.includes(cat);
+    });
+  }
+  if (query) {
+    const q = query.toLowerCase();
+    visible = visible.filter(c => String(c.label).toLowerCase().includes(q));
+  }
+
+  // ── Recent selections ──
+  const recents = getRecents(promptId);
+  const recentCandidates = [];
+  if (recents.length && !query) {
+    // Show recents that still exist in candidates
+    recents.forEach(r => {
+      const match = candidates.find(c => JSON.stringify(c.value) === JSON.stringify(r.value));
+      if (match) recentCandidates.push(match);
+    });
+  }
+
+  if (visible.length === 0 && recentCandidates.length === 0) {
+    return '<div class="selector-no-results">无匹配结果</div>';
+  }
+
+  let html = '';
+  if (recentCandidates.length) {
+    html += '<div class="recent-divider">★ 最近使用</div>';
+    html += recentCandidates.map(c => renderSelectorRow(c, query, isMulti, true)).join('');
+    html += '<div class="recent-divider">—— 全部 · 共 ' + visible.length + ' 个 ——</div>';
+  }
+  html += visible.map(c => renderSelectorRow(c, query, isMulti, false)).join('');
+  return html;
+}
+
+function renderSelectorRow(c, query, isMulti, isRecent) {
+  const cat = extractCatLabel(c.label);
+  return `
+    <div class="selector-row${isRecent ? ' recent' : ''}" data-value="${jsonAttr(c.value)}" data-cat="${escAttr(cat)}" data-label="${escAttr(c.label)}" onclick="${isMulti ? 'toggleSearchRow(this)' : 'selectSearchRow(this)'}">
+      ${isMulti ? '<div class="selector-row-dot" style="border-radius:4px;"></div>' : '<div class="selector-row-dot"></div>'}
+      <span class="selector-row-label">${highlightMatch(c.label, query)}</span>
+      <span class="selector-row-cat">${escHtml(cat)}</span>
+      <span class="selector-row-check">${isMulti ? '' : '✓'}</span>
+    </div>`;
+}
+
+function extractCatLabel(label) {
+  const m = String(label).match(/（(.+?)）$/);
+  return m ? m[1] : '其他';
+}
+
+/* ── Highlight matching text ── */
+function highlightMatch(text, query) {
+  if (!query) return escHtml(text);
+  const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const re = new RegExp(`(${escaped})`, 'gi');
+  return escHtml(text).replace(re, '<mark class="match-highlight">$1</mark>');
+}
+
+/* ── Get active category chips ── */
+function getActiveCategories(promptId, card) {
+  if (!card) card = document.querySelector('.card-clarify');
+  if (!card) return [];
+  const section = card.querySelector(`.prompt-section[data-prompt-id="${promptId}"]`);
+  if (!section) return [];
+  const chips = section.querySelectorAll('.selector-cat-chip.active');
+  return Array.from(chips).map(c => c.textContent);
+}
+
+/* ── Category chip toggle ── */
+function toggleCatChip(chip, promptId) {
+  const card = chip.closest('.card-clarify');
+  if (!card) return;
+  const section = card.querySelector(`.prompt-section[data-prompt-id="${promptId}"]`);
+  if (!section) return;
+  const wasActive = chip.classList.contains('active');
+  section.querySelectorAll('.selector-cat-chip').forEach(c => c.classList.remove('active'));
+  if (!wasActive) chip.classList.add('active');
+  const searchInput = section.querySelector('.selector-search');
+  if (searchInput) filterSelector(searchInput, promptId, card);
+}
+
+/* ── Filter rows by search + categories ── */
+function filterSelector(input, promptId, card) {
+  if (!card) card = input.closest('.card-clarify');
+  if (!card) return;
+  const section = card.querySelector(`.prompt-section[data-prompt-id="${promptId}"]`);
+  if (!section) return;
+  const listWrap = section.querySelector('.selector-list-wrap');
+  if (!listWrap) return;
+  const countEl = section.querySelector('#sel-count-' + promptId);
+  const query = input && input.value ? input.value.trim() : '';
+  const rows = listWrap.querySelectorAll('.selector-row');
+  const dividers = listWrap.querySelectorAll('.recent-divider');
+  const activeCats = getActiveCategories(promptId, card);
+  let visibleCount = 0;
+  let visibleRecent = 0;
+  const totalCount = rows.length;
+
+  // Remove stale no-results
+  const nr = listWrap.querySelector('.selector-no-results');
+  if (nr) nr.remove();
+
+  rows.forEach(row => {
+    const label = (row.dataset.label || '').toLowerCase();
+    const cat = row.dataset.cat || '';
+    const matchQuery = !query || label.includes(query.toLowerCase());
+    const matchCat = activeCats.length === 0 || activeCats.includes(cat);
+    if (matchQuery && matchCat) {
+      row.style.display = '';
+      const labelEl = row.querySelector('.selector-row-label');
+      if (labelEl) {
+        if (query) labelEl.innerHTML = highlightMatch(row.dataset.label, query);
+        else labelEl.textContent = row.dataset.label;
+      }
+      visibleCount++;
+      if (row.classList.contains('recent')) visibleRecent++;
+    } else {
+      row.style.display = 'none';
+    }
+  });
+
+  // Show/hide dividers
+  dividers.forEach(d => {
+    d.style.display = query ? 'none' : '';
+  });
+
+  if (visibleCount === 0 && totalCount > 0) {
+    const nr2 = document.createElement('div');
+    nr2.className = 'selector-no-results';
+    nr2.textContent = '无匹配结果';
+    listWrap.appendChild(nr2);
+  }
+
+  if (countEl) {
+    countEl.textContent = (visibleCount === totalCount && !query && activeCats.length === 0)
+      ? `共 ${totalCount} 个候选`
+      : `${visibleCount} 个匹配 · 共 ${totalCount} 个候选`;
+  }
+}
+
+/* ── Select a row (single_select) ── */
+function selectSearchRow(row) {
+  const listWrap = row.closest('.selector-list-wrap');
+  listWrap.querySelectorAll('.selector-row').forEach(r => r.classList.remove('selected'));
+  row.classList.add('selected');
+}
+
+/* ── Toggle a row (multi_select) ── */
+function toggleSearchRow(row) {
+  row.classList.toggle('selected');
+}
+
+
 /* ── Task ── */
 function renderTask(el, plan) {
   el.className = 'msg bot';
-  const paramsHtml = Object.entries(plan.params || {}).map(([k, v]) => `
-    <div class="param-key">${escHtml(k)}</div>
+
+  // Build params from dataset.selection_params with Chinese labels
+  const paramLabels = {
+    type: '产品型号', versionList: '配置序号', systemNoList: '系统编号',
+    startTime: '开始时间', endTime: '结束时间', archive: '归档',
+    keepLast: '仅保留最新', onlyRepeatSerial: '仅重复序列号', lang: '语言', sumList: '判定结果'
+  };
+  const hiddenParams = ['lang', 'archive', 'keepLast', 'onlyRepeatSerial'];
+  const selParams = (plan.dataset && plan.dataset.selection_params) || {};
+  const paramsEntries = Object.keys(selParams).length
+    ? Object.entries(selParams).filter(([k]) => !hiddenParams.includes(k))
+    : Object.entries(plan.params || {}).filter(([k]) => !hiddenParams.includes(k));
+  const paramsHtml = paramsEntries.map(([k, v]) => `
+    <div class="param-key">${escHtml(paramLabels[k] || k)}</div>
     <div class="param-value">${escHtml(formatParam(v))}</div>
   `).join('');
 
-  const needsConfirm = plan.requires_confirmation || plan.status === 'needs_confirmation';
-  const footerHtml = needsConfirm
-    ? `<div class="card-task-footer">
-        <span class="risk-badge ${plan.risk_level || 'low'}">${plan.risk_level || 'low'} risk</span>
-        <div style="display:flex;gap:10px;">
-          <button class="btn-ghost" onclick="dismissCard(this)">取消 (N)</button>
-          <button class="btn-primary" onclick="confirmTask(this)">▶ 确认 (Y)</button>
+  // Dataset info — shown as a sub-header in the card body
+  const dsName = plan.dataset ? plan.dataset.dataset_name : '';
+  const dsCount = plan.dataset ? plan.dataset.record_count : null;
+  const dsHtml = dsName ? `
+    <div class="task-dataset-info">
+      <span class="task-dataset-name">📦 ${escHtml(dsName)}</span>
+      ${dsCount != null ? `<span class="task-dataset-sep"></span><span class="task-dataset-count">${dsCount} 条记录</span>` : ''}
+    </div>` : '';
+
+  const downloads = taskDownloadLinks(plan.data);
+  const downloadsHtml = downloads.length ? `
+        <div class="task-downloads">
+          <div class="task-downloads-title">下载文件</div>
+          <ul class="task-downloads-list">
+            ${downloads.map((url, index) => `
+              <li><a class="task-download-link" href="${escAttr(url)}" target="_blank" rel="noreferrer noopener">${escHtml(downloadLabel(url, index))}</a></li>
+            `).join('')}
+          </ul>
         </div>
-      </div>`
-    : `<div class="card-task-footer">
+      ` : '';
+
+  const footerHtml = `<div class="card-task-footer">
         <span class="risk-badge ${plan.risk_level || 'low'}">${plan.risk_level || 'low'} risk</span>
         <button class="btn-primary" onclick="dismissCardVisual(this)">已了解</button>
       </div>`;
 
   el.innerHTML = `
     <div class="msg-role"><span class="msg-role-dot"></span>COPILOT</div>
-    <div class="card-task">
+    <div class="card-task${plan.risk_level === 'high' ? ' risk-high' : ''}">
       <div class="card-task-header">
         <span class="card-task-icon">⚡</span>
         <span class="card-task-title">${escHtml(plan.title || plan.name)}</span>
@@ -1168,8 +1836,10 @@ function renderTask(el, plan) {
       </div>
       <div class="card-task-divider"></div>
       <div class="card-task-body">
+        ${dsHtml}
         <div class="card-task-params">${paramsHtml}</div>
         ${plan.message ? `<div style="margin-top:12px;font-size:13px;color:var(--text-secondary)">${escHtml(plan.message)}</div>` : ''}
+        ${downloadsHtml}
       </div>
       ${footerHtml}
     </div>
@@ -1177,9 +1847,26 @@ function renderTask(el, plan) {
 }
 
 /* ── Confirm ── */
+function taskDownloadLinks(data) {
+  const urls = Array.isArray(data?.downloads) ? data.downloads : Array.isArray(data?.data) ? data.data : [];
+  return urls.filter(url => typeof url === 'string' && /^https?:\/\//i.test(url));
+}
+
+function downloadLabel(url, index) {
+  try {
+    const pathname = new URL(url).pathname;
+    const value = decodeURIComponent(pathname.slice(pathname.lastIndexOf('/') + 1));
+    return value || `download-${index + 1}`;
+  } catch (_) {
+    return `download-${index + 1}`;
+  }
+}
+
 function renderConfirm(el, plan) {
   el.className = 'msg bot';
-  const payloadHtml = plan.payload ? `<pre style="margin-top:8px;font-size:12px;color:var(--text-tertiary);white-space:pre-wrap;">${escHtml(JSON.stringify(plan.payload, null, 2))}</pre>` : '';
+  const summary = summarizePayload(plan.payload);
+  const hasDetail = plan.payload && Object.keys(plan.payload).length > 0;
+  const detailId = 'cfm-detail-' + Math.random().toString(36).slice(2, 8);
 
   el.innerHTML = `
     <div class="msg-role"><span class="msg-role-dot"></span>COPILOT</div>
@@ -1191,13 +1878,50 @@ function renderConfirm(el, plan) {
           <div class="card-confirm-msg">${escHtml(plan.message)}</div>
         </div>
       </div>
-      <div class="card-confirm-payload">${payloadHtml}</div>
+      ${summary ? `<div class="card-confirm-summary">${summary}</div>` : ''}
+      ${hasDetail ? `
+        <div class="card-confirm-detail" id="${detailId}" style="display:none;">
+          <pre>${escHtml(JSON.stringify(plan.payload, null, 2))}</pre>
+        </div>
+        <div class="card-confirm-toggle" onclick="toggleDetail('${detailId}', this)">
+          <span class="toggle-label">查看详情</span><span class="toggle-arrow">▸</span>
+        </div>
+      ` : ''}
       <div class="card-confirm-footer">
         <button class="btn-ghost" onclick="dismissCard(this)">取消</button>
         <button class="btn-danger" onclick="confirmAction(this)">确认执行</button>
       </div>
     </div>
   `;
+}
+
+function summarizePayload(payload) {
+  if (!payload) return '';
+  const lines = [];
+  if (payload.record_count != null) lines.push(`<div class="sum-row"><span class="sum-key">记录数</span><span class="sum-val">${escHtml(String(payload.record_count))} 条</span></div>`);
+  if (payload.operation) {
+    const opLabel = payload.operation.replace(/^task\./, '').replace(/\./g, ' › ');
+    lines.push(`<div class="sum-row"><span class="sum-key">操作</span><span class="sum-val">${escHtml(opLabel)}</span></div>`);
+  }
+  if (payload.params) {
+    const paramKeys = Object.keys(payload.params);
+    if (paramKeys.length === 1 && Array.isArray(payload.params[paramKeys[0]])) {
+      lines.push(`<div class="sum-row"><span class="sum-key">${escHtml(paramKeys[0])}</span><span class="sum-val">${payload.params[paramKeys[0]].length} 条</span></div>`);
+    }
+  }
+  if (lines.length === 0) return '';
+  return lines.join('');
+}
+
+function toggleDetail(id, toggleEl) {
+  const detail = document.getElementById(id);
+  if (!detail) return;
+  const isOpen = detail.style.display !== 'none';
+  detail.style.display = isOpen ? 'none' : 'block';
+  const label = toggleEl.querySelector('.toggle-label');
+  const arrow = toggleEl.querySelector('.toggle-arrow');
+  if (label) label.textContent = isOpen ? '查看详情' : '收起详情';
+  if (arrow) arrow.textContent = isOpen ? '▸' : '▾';
 }
 
 /* ── Context ── */
@@ -1245,8 +1969,11 @@ function toggleChip(el) {
 }
 
 function submitClarify(btn) {
-  btn.disabled = true;
+  disableCardButtons(btn);
   btn.textContent = '已提交';
+  // Save recent selections before collecting
+  const card = btn.closest('.card-clarify');
+  saveRecentFromCard(card);
   const replies = collectPromptReplies();
   // Send a synthetic message with the replies
   const session = getActiveSession();
@@ -1254,6 +1981,13 @@ function submitClarify(btn) {
   const promptMsg = replies.map(r => `${r.prompt_id}: ${Array.isArray(r.value) ? r.value.join(', ') : r.value}`).join('; ');
   msgInput.value = `[已选择] ${promptMsg}`;
   sendMessage();
+}
+
+function cancelClarify(btn) {
+  disableCardButtons(btn);
+  btn.textContent = '已取消';
+  msgInput.value = '取消';
+  sendMessage({ includePromptReplies: false });
 }
 
 function dismissCard(btn) {
@@ -1283,14 +2017,18 @@ function confirmAction(btn) {
 }
 
 function disableCardButtons(btn) {
-  const footer = btn.closest('.card-task-footer, .card-confirm-footer');
-  if (footer) footer.querySelectorAll('button').forEach(b => b.disabled = true);
+  const card = btn.closest('.card-clarify, .card-task, .card-confirm');
+  if (card) { card.style.pointerEvents = 'none'; card.classList.add('card-frozen'); }
 }
 
 /* ── Scroll ── */
 function scrollDown() {
   requestAnimationFrame(() => {
     chatArea.scrollTop = chatArea.scrollHeight;
+    // Force a second frame to ensure layout is complete after restore
+    requestAnimationFrame(() => {
+      chatArea.scrollTop = chatArea.scrollHeight;
+    });
   });
 }
 
@@ -1349,8 +2087,65 @@ function reasonLabel(r) {
   return map[r] || r;
 }
 function statusLabel(s) {
-  const map = { ready: '就绪', needs_confirmation: '需确认', blocked: '阻塞' };
+  const map = { ready: '就绪', submitted: '已提交', needs_confirmation: '需确认', blocked: '阻塞' };
   return map[s] || s;
+}
+
+/* ── Recent selections (localStorage) ── */
+const RECENT_KEY = 'maia_recent';
+const RECENT_MAX = 5;
+
+function getRecents(promptId) {
+  try {
+    const raw = localStorage.getItem(RECENT_KEY);
+    if (raw) {
+      const all = JSON.parse(raw);
+      return (all[promptId] || []).slice(0, RECENT_MAX);
+    }
+  } catch (_) {}
+  return [];
+}
+
+function saveRecents(promptId, entries) {
+  try {
+    const raw = localStorage.getItem(RECENT_KEY);
+    const all = raw ? JSON.parse(raw) : {};
+    // Deduplicate by stringified value, keep newest first
+    const existing = (all[promptId] || []).filter(e => {
+      return !entries.some(n => JSON.stringify(n.value) === JSON.stringify(e.value));
+    });
+    all[promptId] = [...entries, ...existing].slice(0, RECENT_MAX);
+    localStorage.setItem(RECENT_KEY, JSON.stringify(all));
+  } catch (_) {}
+}
+
+function saveRecentFromCard(card) {
+  if (!card) return;
+  const prompts = card.querySelectorAll('.prompt-section.searchable-section');
+  prompts.forEach(sec => {
+    const promptId = sec.dataset.promptId;
+    const sel = sec.querySelector('.selector-row.selected');
+    if (!sel) return;
+    saveRecents(promptId, [{
+      value: parseValue(sel.dataset.value),
+      label: sel.dataset.label || '',
+      cat: sel.dataset.cat || '',
+      ts: Date.now()
+    }]);
+  });
+  // Also handle card-mode selections
+  card.querySelectorAll('.prompt-section:not(.searchable-section)').forEach(sec => {
+    const promptId = sec.dataset.promptId;
+    const selCard = sec.querySelector('.option-card.selected');
+    if (!selCard) return;
+    const val = parseValue(selCard.dataset.value);
+    saveRecents(promptId, [{
+      value: val,
+      label: (selCard.querySelector('.option-card-value') || {}).textContent || '',
+      cat: '',
+      ts: Date.now()
+    }]);
+  });
 }
 
 /* ============================================================
@@ -1392,6 +2187,14 @@ if (state.activeId && state.sessions[state.activeId]) {
   showWelcome();
 }
 renderSidebar();
+// Multi-frame scroll to handle layout after full restore
+requestAnimationFrame(() => {
+  requestAnimationFrame(() => {
+    chatArea.scrollTop = chatArea.scrollHeight;
+    setTimeout(() => { chatArea.scrollTop = chatArea.scrollHeight; }, 50);
+    setTimeout(() => { chatArea.scrollTop = chatArea.scrollHeight; }, 200);
+  });
+});
 </script>
 
 </body>

@@ -329,7 +329,7 @@ class AudioGenerationHandler:
             )
         return TaskResult(
             plan=TaskPlan(
-                status="ready",
+                status="submitted",
                 name=task.name,
                 intent=AUDIO_GENERATION_INTENT,
                 title=task.title,

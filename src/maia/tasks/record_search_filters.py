@@ -30,7 +30,6 @@ _ALL_PRODUCT_TYPE_ALIASES = frozenset(
         "\u4e0d\u9650\u578b\u53f7",
     }
 )
-_PRODUCT_TYPE_CANDIDATE_LIMIT = 5
 _SLOT_LABELS = {
     "config_version": "\u914d\u7f6e\u5e8f\u53f7",
     "product_type": "\u4ea7\u54c1\u578b\u53f7",
@@ -326,7 +325,7 @@ def _clarify_missing(
 
 
 def _clarify_missing_product_type(product_types: tuple[str, ...]) -> ClarifyPlan:
-    values = product_types[:_PRODUCT_TYPE_CANDIDATE_LIMIT]
+    values = product_types
     message = _product_type_context_message(product_types)
     prompt = Prompt(
         id="product_type",
@@ -370,7 +369,7 @@ def _clarify_invalid(
 
 
 def _clarify_invalid_product_type(product_types: tuple[str, ...]) -> ClarifyPlan:
-    values = product_types[:_PRODUCT_TYPE_CANDIDATE_LIMIT]
+    values = product_types
     prompt = Prompt(
         id="product_type",
         target="slot",
@@ -397,10 +396,9 @@ def _clarify_invalid_product_type(product_types: tuple[str, ...]) -> ClarifyPlan
 
 
 def _product_type_context_message(product_types: tuple[str, ...]) -> str:
-    values = product_types[:_PRODUCT_TYPE_CANDIDATE_LIMIT]
-    preview = "\u3001".join(values[:3])
+    preview = "\u3001".join(product_types[:3])
     count = len(product_types)
-    if count > len(values[:3]):
+    if count > len(product_types[:3]):
         return (
             f"\u5f53\u524d\u7b5b\u9009\u7684\u6d4b\u8bd5\u8bb0\u5f55\u6309\u6d4b\u8bd5\u65f6\u95f4\u5012\u5e8f"
             f"\u6db5\u76d6\u4e86{preview}\u7b49 {count} \u4e2a\u4ea7\u54c1\u578b\u53f7\uff0c"

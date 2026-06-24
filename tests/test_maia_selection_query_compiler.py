@@ -277,7 +277,7 @@ class FakeRecordClient:
     ) -> TestRecordPage:
         key = "<all>" if expression is None else _key(expression)
         page_number = page or 1
-        row_count = rows or 500
+        row_count = rows or 5000
         self.calls.append((_call_label(key), page_number, row_count))
         if key not in self._pages:
             raise ValueError(f"unsupported query branch: {key}")

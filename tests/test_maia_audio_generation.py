@@ -47,7 +47,7 @@ def test_audio_generation_filters_ng_records_then_confirms_and_submits() -> None
     assert first.plan.payload["params"]["resultIds"] == [46467, 46477, 46472]
     assert first.plan.payload["record_count"] == 3
     assert second.plan.kind == "task"
-    assert second.plan.status == "ready"
+    assert second.plan.status == "submitted"
     assert generator.requests[0].to_body() == [46467, 46477, 46472]
 
 

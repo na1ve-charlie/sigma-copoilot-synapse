@@ -4,7 +4,15 @@ from collections import Counter
 from collections.abc import Iterable
 from typing import Protocol
 
-from maia.api import ClarifyPlan, PlanDataset, Prompt, PromptCandidate, ReplyPlan, TaskPlan
+from maia.api import (
+    ClarifyPlan,
+    PlanDataset,
+    Prompt,
+    PromptCandidate,
+    ReplyPlan,
+    TaskPlan,
+    TaskStatus,
+)
 from maia.conversation.draft import SelectionDraft
 from maia.conversation.state import ConversationSelectionState
 from maia.integrations.sigma.origin_export import OriginExportError, OriginExportRequest
@@ -57,9 +65,15 @@ class OriginDataExportPolicy:
     def reply(self, message: str) -> ReplyPlan:
         return ReplyPlan(message=message)
 
-    def task_plan(self, task: TaskSpec | PendingTask, message: str) -> TaskPlan:
+    def task_plan(
+        self,
+        task: TaskSpec | PendingTask,
+        message: str,
+        *,
+        status: TaskStatus = "ready",
+    ) -> TaskPlan:
         return TaskPlan(
-            status="ready",
+            status=status,
             name=task.name,
             intent=ORIGIN_DATA_EXPORT_INTENT,
             title=task.title,

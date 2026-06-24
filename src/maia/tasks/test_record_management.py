@@ -12,6 +12,7 @@ from maia.api import (
     PromptCandidate,
     ReplyPlan,
     TaskPlan,
+    TaskStatus,
 )
 from maia.conversation.draft import SelectionDraft
 from maia.conversation.state import ConversationSelectionState, ConversationTaskStateStore
@@ -95,9 +96,15 @@ class TestRecordManagementPolicy:
     def reply(self, message: str) -> ReplyPlan:
         return ReplyPlan(message=message)
 
-    def task_plan(self, task: TaskSpec | PendingTask, message: str) -> TaskPlan:
+    def task_plan(
+        self,
+        task: TaskSpec | PendingTask,
+        message: str,
+        *,
+        status: TaskStatus = "ready",
+    ) -> TaskPlan:
         return TaskPlan(
-            status="ready",
+            status=status,
             name=task.name,
             intent=TEST_RECORD_MANAGEMENT_INTENT,
             title=task.title,
@@ -346,7 +353,11 @@ class TestRecordManagementHandler:
                 state=self._task_store.cancel_confirmation(context.state),
             )
         return TaskResult(
-            plan=self._policy.task_plan(task, "Test record management submitted."),
+            plan=self._policy.task_plan(
+                task,
+                "Test record management submitted.",
+                status="submitted",
+            ),
             state=self._task_store.submit(context.state, task.task_id),
         )
 

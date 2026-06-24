@@ -74,6 +74,38 @@ def test_pending_task_state_rebases_saved_task_to_new_selection() -> None:
     assert rebased.version == 2
 
 
+def test_cancel_pending_clears_selection_and_task_state() -> None:
+    from maia.conversation.state import (
+        ConversationSelectionState,
+        ConversationTaskStateStore,
+        PendingSelectionStateStore,
+    )
+    from maia.tasks import TaskSpecBuilder
+
+    selection = _selection_set("sel-1", ("r-1",))
+    draft = SelectionDraftReducer().apply(
+        None,
+        _report(
+            operations=[
+                {"action": "replace", "entity_type": "product_type", "target": "A"},
+            ]
+        ),
+    )
+    task = TaskSpecBuilder(id_factory=iter(("task-1",)).__next__).build(
+        _report(actions=["task.nvh.origin_data_export"]),
+        selection,
+    )
+    state = PendingSelectionStateStore().save_pending(ConversationSelectionState(), draft)
+    state = ConversationTaskStateStore().save_pending(state, task)
+
+    cancelled = ConversationTaskStateStore().cancel_pending(state)
+
+    assert cancelled.pending_selection_draft is None
+    assert cancelled.pending_task is None
+    assert cancelled.pending_confirmation is None
+    assert cancelled.version == state.version + 1
+
+
 def _report(
     *,
     actions: list[str] | None = None,

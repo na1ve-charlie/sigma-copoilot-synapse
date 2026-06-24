@@ -5,7 +5,15 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import Protocol
 
-from maia.api import ClarifyPlan, PlanDataset, Prompt, PromptCandidate, ReplyPlan, TaskPlan
+from maia.api import (
+    ClarifyPlan,
+    PlanDataset,
+    Prompt,
+    PromptCandidate,
+    ReplyPlan,
+    TaskPlan,
+    TaskStatus,
+)
 from maia.conversation.draft import SelectionDraft
 from maia.conversation.state import ConversationSelectionState
 from maia.integrations.sigma.excel_export import ExcelExportError, ExcelExportRequest, SensorListError
@@ -105,9 +113,16 @@ class ExcelExportPolicy:
     def reply(self, message: str) -> ReplyPlan:
         return ReplyPlan(message=message)
 
-    def task_plan(self, task: TaskSpec | PendingTask, message: str) -> TaskPlan:
+    def task_plan(
+        self,
+        task: TaskSpec | PendingTask,
+        message: str,
+        *,
+        status: TaskStatus = "ready",
+        data: dict[str, object] | None = None,
+    ) -> TaskPlan:
         return TaskPlan(
-            status="ready",
+            status=status,
             name=task.name,
             intent=EXCEL_EXPORT_INTENT,
             title=task.title,
@@ -115,6 +130,7 @@ class ExcelExportPolicy:
             requires_confirmation=task.requires_confirmation,
             params=task.params,
             message=message,
+            data={} if data is None else data,
         )
 
     def blocked_plan(self, task: TaskSpec | PendingTask, reason: str, message: str) -> TaskPlan:

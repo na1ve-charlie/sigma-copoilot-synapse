@@ -99,7 +99,16 @@ def test_excel_export_confirms_and_posts_payload_after_prompt_replies() -> None:
         _record("46704", product_type="dm0608", config_version="5", system_no="7s-SNF1001"),
         _record("46703", product_type="dm0608", config_version="5", system_no="7s-SNF1001"),
     )
-    exporter = _ExcelExporter()
+    export_response = {
+        "msg": None,
+        "code": 200,
+        "data": [
+            "http://SN1033:8081/api/storage/baseFilePath/exports/20260624101641-OneData.xlsx",
+            "http://SN1033:8081/api/storage/baseFilePath/exports/20260624101641-TwoData.xlsx",
+            "http://SN1033:8081/api/storage/baseFilePath/exports/20260624101641-resultData.xlsx",
+        ],
+    }
+    exporter = _ExcelExporter(response=export_response)
     handler = create_maia_runtime(
         recognizer=_SequenceRecognizer(
             [
@@ -147,7 +156,8 @@ def test_excel_export_confirms_and_posts_payload_after_prompt_replies() -> None:
     assert third.plan.kind == "confirm"
     assert third.plan.reason == "medium_risk_operation"
     assert fourth.plan.kind == "task"
-    assert fourth.plan.status == "ready"
+    assert fourth.plan.status == "submitted"
+    assert fourth.plan.data == export_response
     assert exporter.requests[0].to_body() == {
         "type": "dm0608_5",
         "systemNo": "7s-SNF1001",
@@ -381,13 +391,14 @@ class _SensorLister:
 
 
 class _ExcelExporter:
-    def __init__(self) -> None:
+    def __init__(self, response: dict[str, object] | None = None) -> None:
         self.requests: list[ExcelExportRequest] = []
+        self.response = response or {"code": 200, "data": True}
 
     async def export(self, request: ExcelExportRequest, *, workspace_context):
         del workspace_context
         self.requests.append(request)
-        return {"code": 200, "data": True}
+        return self.response
 
 
 def _report(

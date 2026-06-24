@@ -4,8 +4,8 @@ from dataclasses import dataclass
 import os
 from typing import Any, Protocol
 
-from maia.api import ClarifyPlan, TurnRequest, TurnResponse
-from maia.conversation.state import ConversationSelectionState
+from maia.api import ClarifyPlan, ReplyPlan, TurnRequest, TurnResponse
+from maia.conversation.state import ConversationSelectionState, ConversationTaskStateStore
 from maia.integrations.sigma import (
     ExcelExportClient,
     MutableSigmaTokenProvider,
@@ -41,6 +41,9 @@ from maia.tasks.test_record_management import TestRecordManagementHandler
 
 _SUMMARY_RESULT_RESOLVER_VALUES = (*SUMMARY_RESULT_VALUES, *(alias.upper() for alias in SUMMARY_RESULT_ALIASES))
 _MARKING_RESULT_RESOLVER_VALUES = MARKING_RESULT_VALUES
+_PENDING_CANCEL_VALUES = frozenset(
+    {"\u53d6\u6d88", "\u4e0d\u7528", "\u4e0d\u8981", "cancel", "no", "n"}
+)
 
 
 @dataclass(frozen=True)
@@ -156,6 +159,10 @@ class MaiaTurnHandler:
 
     async def handle_turn(self, request: TurnRequest) -> TurnResponse:
         state = self._state_repository.load(request.session_id)
+        if _is_pending_prompt_cancellation(request, state):
+            state = ConversationTaskStateStore().cancel_pending(state)
+            self._state_repository.save(request.session_id, state)
+            return present_turn(ReplyPlan(message="Pending task cancelled."))
         product_configs = await self._product_configs(request)
         report = (
             _empty_report(request)
@@ -309,6 +316,17 @@ def _empty_report(request: TurnRequest) -> RecognitionReport:
         requires_confirmation=False,
         degraded=False,
     )
+
+
+def _is_pending_prompt_cancellation(
+    request: TurnRequest,
+    state: ConversationSelectionState,
+) -> bool:
+    if state.pending_confirmation is not None:
+        return False
+    if state.pending_selection_draft is None and state.pending_task is None:
+        return False
+    return request.message.strip().casefold() in _PENDING_CANCEL_VALUES
 
 
 __all__ = ["ConversationStateRepository", "MaiaTurnHandler", "create_maia_runtime"]
