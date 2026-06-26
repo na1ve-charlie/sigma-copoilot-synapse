@@ -100,6 +100,7 @@ class SigmaSelectionSetMaterializer(SelectionSetMaterializer):
         except json.JSONDecodeError as exc:
             raise DatasetMaterializerError("SigMA dataset materializer returned invalid JSON") from exc
         error = _backend_error(payload, status_code)
+        print(payload)
         if error:
             raise DatasetMaterializerError(f"SigMA dataset materializer backend error: {error}")
         return payload if isinstance(payload, dict) else {}

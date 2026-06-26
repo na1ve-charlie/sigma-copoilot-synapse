@@ -1163,6 +1163,27 @@ input, textarea { font-family: inherit; color: inherit; }
 
 <script>
 /* ============================================================
+   Polyfill: crypto.randomUUID() for non-secure contexts
+   e.g. http://hostname:port (only localhost/127.0.0.1 are
+   considered secure contexts for this API).
+   ============================================================ */
+if (!crypto.randomUUID) {
+  crypto.randomUUID = function() {
+    const buf = new Uint8Array(16);
+    crypto.getRandomValues(buf);
+    // UUID v4: set version nibble to 4 and variant bits to 10xx
+    buf[6] = (buf[6] & 0x0f) | 0x40;
+    buf[8] = (buf[8] & 0x3f) | 0x80;
+    const hex = Array.from(buf, b => b.toString(16).padStart(2, '0'));
+    return hex.slice(0,4).join('') + '-' +
+           hex.slice(4,6).join('') + '-' +
+           hex.slice(6,8).join('') + '-' +
+           hex.slice(8,10).join('') + '-' +
+           hex.slice(10,16).join('');
+  };
+}
+
+/* ============================================================
    MaiaChat — Conversational AI Chat Engine
    ============================================================ */
 

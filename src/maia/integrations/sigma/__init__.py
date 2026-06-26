@@ -28,6 +28,7 @@ from maia.integrations.sigma.record_client import (
     TestRecordClientError,
 )
 from maia.integrations.sigma.origin_export import (
+    ORIGIN_DATA_INFO_LOOKUP_PATH,
     ORIGIN_EXPORT_PATH,
     OriginExportClient,
     OriginExportError,
@@ -110,6 +111,7 @@ __all__ = [
     "NgAudioGenerationError",
     "NgAudioGenerationRequest",
     "NgAudioGenerationTransport",
+    "ORIGIN_DATA_INFO_LOOKUP_PATH",
     "ORIGIN_EXPORT_PATH",
     "OriginExportClient",
     "OriginExportError",

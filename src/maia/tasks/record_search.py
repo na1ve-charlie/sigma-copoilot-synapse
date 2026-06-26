@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from typing import Protocol
 
 from maia.api import ClarifyPlan, PlanDataset, TaskPlan, WorkspaceContext
-from maia.conversation.draft import SelectionDraft, SelectionDraftReducer, SelectionSort
+from maia.conversation.draft import SelectionDraft, SelectionDraftReducer
 from maia.conversation.references import SelectionReferenceResolutionError, SelectionReferenceResolver
 from maia.conversation.state import ConversationSelectionState, PendingSelectionStateStore
 from maia.presentation import DatasetProjector
@@ -19,11 +19,9 @@ from maia.tasks.record_search_filters import (
     complete_product_type_filter,
     complete_type_system_filter,
     config_version_scope,
-    invalidate_product_filters_on_scope_change,
     is_all_product_types_request,
     product_type_scope,
     selection_expression_for_storage,
-    selection_expression_from_storage,
     type_system_scope,
 )
 from maia.tasks.record_search_replies import (
@@ -32,6 +30,7 @@ from maia.tasks.record_search_replies import (
     resolve_pending_prompt_reply,
 )
 from maia.tasks.router import TaskContext, TaskResult
+from maia.tasks.selection_seed_policy import SelectionSeed, SelectionSeedPolicy
 
 
 @dataclass(frozen=True)
@@ -62,6 +61,7 @@ class RecordSearchHandler:
         self._draft_reducer = SelectionDraftReducer()
         self._selection_store = PendingSelectionStateStore()
         self._reference_resolver = SelectionReferenceResolver(selection_repository)
+        self._seed_policy = SelectionSeedPolicy()
         self._dataset_projector = DatasetProjector()
 
     def can_handle(self, context: TaskContext) -> bool:
@@ -98,8 +98,8 @@ class RecordSearchHandler:
     ) -> RecordSelectionResult:
         try:
             report = self._report_for_context(context)
-            base = self._resolve_base_selection(report, context.state)
-            draft = self._build_draft(report, context.state, base, request=context.request)
+            seed = self._selection_seed(report, context)
+            draft = self._build_draft(report, seed, request=context.request)
         except (SelectionReferenceResolutionError, ValueError) as exc:
             return RecordSelectionResult(
                 clarify=self._with_dataset(
@@ -121,7 +121,7 @@ class RecordSearchHandler:
                 state=self._selection_store.save_pending(context.state, pending_draft),
             )
 
-        selection = await self.materialize_selection(context, draft, base=base)
+        selection = await self.materialize_selection(context, draft, base=seed.base)
         next_state = self._selection_store.activate(context.state, selection.selection_set_id)
         return RecordSelectionResult(state=next_state, selection=selection)
 
@@ -219,40 +219,68 @@ class RecordSearchHandler:
             prompt_replies=context.request.prompt_replies,
         )
 
-    def _resolve_base_selection(
+    def _selection_seed(
         self,
         report: RecognitionReport,
-        state: ConversationSelectionState,
-    ) -> SelectionSet | None:
-        referenced = self._reference_resolver.resolve_report(report, state)
-        if referenced is not None:
-            return referenced
-        if state.active_selection_set_id is None:
-            return None
-        return self._selection_repository.get(state.active_selection_set_id)
+        context: TaskContext,
+    ) -> SelectionSeed:
+        state = context.state
+        pending_draft = state.pending_selection_draft
+        is_prompt_reply = bool(context.request.prompt_replies)
+        return self._seed_policy.select(
+            report,
+            pending_draft=pending_draft,
+            pending_base=(
+                self._base_for_pending_draft(pending_draft)
+                if is_prompt_reply
+                else None
+            ),
+            referenced_selection=(
+                None
+                if is_prompt_reply
+                else self._reference_resolver.resolve_report(report, state)
+            ),
+            active_selection=self._active_selection(state),
+            is_prompt_reply=is_prompt_reply,
+        )
 
     def _build_draft(
         self,
         report: RecognitionReport,
-        state: ConversationSelectionState,
-        base: SelectionSet | None,
+        seed: SelectionSeed,
         *,
         request,
     ) -> SelectionDraft:
-        current = (
-            state.pending_selection_draft
-            if state.pending_selection_draft is not None
-            else _draft_from_selection(base)
-        )
         clear_product_type = is_all_product_types_request(
             request.message
         ) or prompt_replies_allow_all_products(request.prompt_replies)
-        current = invalidate_product_filters_on_scope_change(
-            current,
+        current = self._seed_policy.apply_scope_reset(
+            seed,
             report,
             clear_product_type=clear_product_type,
         )
         return self._draft_reducer.apply(current, report)
+
+    def _active_selection(
+        self,
+        state: ConversationSelectionState,
+    ) -> SelectionSet | None:
+        if state.active_selection_set_id is None:
+            return None
+        return self._selection_repository.get(state.active_selection_set_id)
+
+    def _base_for_pending_draft(
+        self,
+        draft: SelectionDraft | None,
+    ) -> SelectionSet | None:
+        if draft is None or draft.base_selection_id is None:
+            return None
+        selection = self._selection_repository.get(draft.base_selection_id)
+        if selection is None:
+            raise SelectionReferenceResolutionError(
+                f"pending selection base could not be loaded: {draft.base_selection_id}"
+            )
+        return selection
 
     async def _complete_product_filters(
         self,
@@ -370,20 +398,6 @@ def _is_selection_intent(intent: str | tuple[str, ...]) -> bool:
     return all(
         name == "task.nvh.record_search" or name.startswith("task.nvh.selection.")
         for name in names
-    )
-
-
-def _draft_from_selection(selection: SelectionSet | None) -> SelectionDraft | None:
-    if selection is None:
-        return None
-    return SelectionDraft(
-        base_selection_id=selection.selection_set_id,
-        expression=selection_expression_from_storage(selection.expression),
-        sort=tuple(
-            SelectionSort(field=item.field, direction=item.direction)
-            for item in selection.sort
-        ),
-        limit=selection.limit,
     )
 
 

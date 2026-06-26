@@ -8,6 +8,7 @@ from maia.integrations.sigma.origin_export import OriginExportRequest
 from maia.integrations.sigma.product_catalog import ProductConfig
 from maia.integrations.sigma.records import TestRecordPage, TestRecordSummary
 from maia.recognition import RecognitionReport
+from maia.selection import InMemorySelectionSetRepository
 from maia.selection.expression import AllOf, Predicate, parse_filter_expression
 
 
@@ -227,6 +228,83 @@ def test_origin_data_export_uses_primary_action_when_embedding_returns_excel_can
 
     assert response.plan.kind == "confirm"
     assert response.plan.payload["operation"] == "task.nvh.origin_data_export"
+
+
+def test_origin_data_export_without_filters_reuses_active_selection() -> None:
+    from maia.runtime import create_maia_runtime
+
+    records = (
+        _record("29181", product_type="A", system_no="SYS-1"),
+        _record("29182", product_type="B", system_no="SYS-2"),
+    )
+    handler = create_maia_runtime(
+        recognizer=_SequenceRecognizer(
+            [
+                _report(
+                    actions=["task.nvh.record_search"],
+                    operations=[
+                        {"action": "replace", "entity_type": "product_type", "target": "A"},
+                    ],
+                ),
+                _report(actions=["task.nvh.origin_data_export"], operations=[]),
+            ]
+        ),
+        record_client=_RecordClient(records),
+        product_catalog=_ProductCatalog(_configs_from_records(records)),
+        origin_export_client=_OriginExporter(),
+        source_version="sigma-fixture-v1",
+    )
+
+    selected = asyncio.run(handler.handle_turn(_request("s1", "find A records")))
+    exported = asyncio.run(handler.handle_turn(_request("s1", "export current origin data TDMS")))
+
+    assert exported.plan.kind == "confirm"
+    assert exported.plan.dataset.selection_set_id == selected.plan.dataset.selection_set_id
+    assert exported.plan.dataset.record_ids == ["29181"]
+
+
+def test_origin_data_export_with_new_product_creates_independent_selection() -> None:
+    from maia.runtime import create_maia_runtime
+
+    records = (
+        _record("29181", product_type="A", system_no="SYS-1"),
+        _record("29182", product_type="B", system_no="SYS-2"),
+    )
+    selection_repository = InMemorySelectionSetRepository()
+    handler = create_maia_runtime(
+        recognizer=_SequenceRecognizer(
+            [
+                _report(
+                    actions=["task.nvh.record_search"],
+                    operations=[
+                        {"action": "replace", "entity_type": "product_type", "target": "A"},
+                    ],
+                ),
+                _report(
+                    actions=["task.nvh.origin_data_export"],
+                    operations=[
+                        {"action": "replace", "entity_type": "product_type", "target": "B"},
+                    ],
+                ),
+            ]
+        ),
+        record_client=_RecordClient(records),
+        selection_repository=selection_repository,
+        product_catalog=_ProductCatalog(_configs_from_records(records)),
+        origin_export_client=_OriginExporter(),
+        source_version="sigma-fixture-v1",
+    )
+
+    selected = asyncio.run(handler.handle_turn(_request("s1", "find A records")))
+    exported = asyncio.run(handler.handle_turn(_request("s1", "export B origin data TDMS")))
+    export_selection = selection_repository.get(exported.plan.dataset.selection_set_id)
+
+    assert exported.plan.kind == "confirm"
+    assert exported.plan.dataset.selection_set_id != selected.plan.dataset.selection_set_id
+    assert exported.plan.dataset.record_ids == ["29182"]
+    assert export_selection is not None
+    assert export_selection.derived_operation == "create"
+    assert export_selection.parent_selection_set_id is None
 
 
 class _SequenceRecognizer:

@@ -54,7 +54,7 @@ def test_runtime_returns_task_plan_without_workspace_context_and_materializes_da
     assert "rows" not in response.plan.dataset.selection_params
 
 
-def test_runtime_derives_follow_up_record_search_from_active_selection() -> None:
+def test_runtime_starts_new_follow_up_record_search_from_product_context() -> None:
     from maia.runtime import create_maia_runtime
 
     records = (
@@ -63,6 +63,7 @@ def test_runtime_derives_follow_up_record_search_from_active_selection() -> None
         _record("r-3", day=3, product_type="A", config_version="1", system_no="SYS-1"),
     )
     materializer = _Materializer()
+    selection_repository = InMemorySelectionSetRepository()
     handler = create_maia_runtime(
         recognizer=_SequenceRecognizer(
             [
@@ -81,6 +82,7 @@ def test_runtime_derives_follow_up_record_search_from_active_selection() -> None
             ]
         ),
         record_client=_RecordClient(records),
+        selection_repository=selection_repository,
         product_catalog=_ProductCatalog(_configs_from_records(records)),
         selection_materializer=materializer,
         source_version="sigma-fixture-v1",
@@ -97,6 +99,10 @@ def test_runtime_derives_follow_up_record_search_from_active_selection() -> None
     assert second.plan.dataset.record_ids == ["r-2"]
     assert second.plan.dataset.selection_params["sumList"] == "FAIL"
     assert materializer.calls[1][0] == "dataset-1"
+    second_selection = selection_repository.get(second.plan.dataset.selection_set_id)
+    assert second_selection is not None
+    assert second_selection.derived_operation == "create"
+    assert second_selection.parent_selection_set_id is None
 
 
 def test_runtime_does_not_reuse_materialized_dataset_across_sessions() -> None:
@@ -269,6 +275,53 @@ def test_runtime_resolves_active_selection_reference_to_same_selection() -> None
     assert second.plan.dataset.selection_set_id == first.plan.dataset.selection_set_id
     assert second.plan.dataset.dataset_id == "dataset-1"
     assert second.plan.dataset.record_ids == first.plan.dataset.record_ids
+
+
+def test_runtime_refines_explicit_active_selection_reference() -> None:
+    from maia.runtime import create_maia_runtime
+
+    records = (
+        _record("r-1", day=1, product_type="A", config_version="1", system_no="SYS-1"),
+        _record("r-2", day=2, product_type="A", config_version="1", system_no="SYS-1", summary_result="FAIL"),
+    )
+    selection_repository = InMemorySelectionSetRepository()
+    handler = create_maia_runtime(
+        recognizer=_SequenceRecognizer(
+            [
+                _report(
+                    actions=["task.nvh.record_search"],
+                    operations=[
+                        {"action": "replace", "entity_type": "product_type", "target": "A"},
+                    ],
+                ),
+                _report(
+                    actions=["task.nvh.record_search"],
+                    operations=[
+                        {
+                            "action": "replace",
+                            "entity_type": "selection_reference",
+                            "target": "active_selection",
+                        },
+                        {"action": "replace", "entity_type": "summary_result", "target": "FAIL"},
+                    ],
+                ),
+            ]
+        ),
+        record_client=_RecordClient(records),
+        selection_repository=selection_repository,
+        product_catalog=_ProductCatalog(_configs_from_records(records)),
+        selection_materializer=_Materializer(),
+        source_version="sigma-fixture-v1",
+    )
+
+    first = asyncio.run(handler.handle_turn(_request("s1", "find A records")))
+    second = asyncio.run(handler.handle_turn(_request("s1", "only failing in these records")))
+    second_selection = selection_repository.get(second.plan.dataset.selection_set_id)
+
+    assert second.plan.dataset.record_ids == ["r-2"]
+    assert second_selection is not None
+    assert second_selection.derived_operation == "refine"
+    assert second_selection.parent_selection_set_id == first.plan.dataset.selection_set_id
 
 
 def test_runtime_treats_selection_only_report_as_record_search_request() -> None:
@@ -454,7 +507,7 @@ def test_runtime_keeps_product_type_when_record_scope_changes() -> None:
     assert second.plan.prompts[0].id == "config_version"
     assert [candidate.value for candidate in second.plan.prompts[0].candidates] == ["2", "1"]
     assert draft is not None
-    assert draft.limit == 7
+    assert draft.limit is None
     assert _predicate_values(draft.expression, "summary_result_in") == ("PASS",)
     assert _predicate_values(draft.expression, "product_type_in") == ("OLD",)
     assert _predicate_values(draft.expression, "config_version_in") == ()
