@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import sys
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
@@ -10,8 +11,14 @@ import yaml
 from pydantic import BaseModel, ConfigDict
 
 
+def _application_root() -> Path:
+    if getattr(sys, "frozen", False):
+        return Path(sys.executable).resolve().parent
+    return Path(__file__).resolve().parents[3]
+
+
 DEFAULT_RECOGNITION_CONFIG_PATH = (
-    Path(__file__).resolve().parents[3] / "configs" / "maia" / "runtime" / "recognition.yaml"
+    _application_root() / "configs" / "maia" / "runtime" / "recognition.yaml"
 )
 
 
